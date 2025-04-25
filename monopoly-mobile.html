@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bangladeshi Monopoly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for the game board and elements */
+        html, body {
+            height: 100%;
+            overscroll-behavior: none; /* Prevent pull-to-refresh */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Make main container flexible */
+        .game-container {
+            display: flex;
+            flex-direction: column; /* Mobile first: stack vertically */
+            flex-grow: 1; /* Allow container to fill height */
+            gap: 1rem; /* Space between sections */
+            padding: 0.5rem; /* Padding for mobile */
+        }
+        /* Switch to row layout on medium screens and up */
+        @media (min-width: 768px) { /* md breakpoint */
+            .game-container {
+                flex-direction: row;
+                padding: 1rem;
+            }
+        }
+
+        /* Board Area Styling */
+        .board-area {
+             /* Mobile: order 2 (after player info) */
+            order: 2;
+             /* Desktop: order 1 */
+            /* md:order-1 handled by flex-row reverse potentially or explicit order */
+            display: flex;
+            flex-direction: column; /* Stack board and controls vertically on mobile */
+            align-items: center; /* Center board and controls */
+            flex-shrink: 0; /* Prevent shrinking on desktop */
+        }
+         @media (min-width: 768px) { /* md breakpoint */
+            .board-area {
+                order: 1; /* Board area first on desktop */
+                width: 66%; /* Take up 2/3 width */
+                 /* Allow shrinking if needed, but prioritize width */
+                 flex-shrink: 1;
+            }
+         }
+          @media (min-width: 1024px) { /* lg breakpoint */
+             .board-area {
+                 width: 75%; /* Take up 3/4 width */
+             }
+         }
+
+
+        .board-container {
+            width: 100%; /* Full width on mobile */
+            max-width: 450px; /* Max width for mobile board */
+            aspect-ratio: 1 / 1; /* Maintain square shape */
+            margin: 0 auto; /* Center horizontally */
+        }
+         @media (min-width: 768px) { /* md breakpoint */
+             .board-container {
+                 /* Adjust size for desktop, maybe use vmin again or fixed max */
+                 width: 90vmin;
+                 height: 90vmin;
+                 max-width: 700px;
+                 max-height: 700px;
+             }
+         }
+          @media (min-width: 1024px) { /* lg breakpoint */
+               .board-container {
+                   max-width: 800px;
+                   max-height: 800px;
+               }
+           }
+
+
+        .board {
+            display: grid;
+            grid-template-columns: 1.6fr repeat(9, 1fr) 1.6fr;
+            grid-template-rows: 1.6fr repeat(9, 1fr) 1.6fr;
+            width: 100%; /* Fill the container */
+            height: 100%; /* Fill the container */
+            border: 2px solid black;
+            background-color: #cde6d0;
+            position: relative;
+        }
+
+        .space {
+            border: 1px solid black;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            text-align: center;
+            font-size: clamp(0.5rem, 1.5vmin, 0.75rem); /* Adjusted font size */
+            overflow: hidden;
+            padding: 2px;
+            line-height: 1.1;
+        }
+        .corner { grid-row: span 1; grid-column: span 1; }
+        .top-row { grid-row: 1; }
+        .bottom-row { grid-row: 11; }
+        .left-col { grid-column: 1; }
+        .right-col { grid-column: 11; }
+
+        /* Space grid assignments (no change) */
+        #space-0 { grid-area: 11 / 11; } #space-1 { grid-area: 11 / 10; } #space-2 { grid-area: 11 / 9; } #space-3 { grid-area: 11 / 8; } #space-4 { grid-area: 11 / 7; } #space-5 { grid-area: 11 / 6; } #space-6 { grid-area: 11 / 5; } #space-7 { grid-area: 11 / 4; } #space-8 { grid-area: 11 / 3; } #space-9 { grid-area: 11 / 2; } #space-10 { grid-area: 11 / 1; } #space-11 { grid-area: 10 / 1; } #space-12 { grid-area: 9 / 1; } #space-13 { grid-area: 8 / 1; } #space-14 { grid-area: 7 / 1; } #space-15 { grid-area: 6 / 1; } #space-16 { grid-area: 5 / 1; } #space-17 { grid-area: 4 / 1; } #space-18 { grid-area: 3 / 1; } #space-19 { grid-area: 2 / 1; } #space-20 { grid-area: 1 / 1; } #space-21 { grid-area: 1 / 2; } #space-22 { grid-area: 1 / 3; } #space-23 { grid-area: 1 / 4; } #space-24 { grid-area: 1 / 5; } #space-25 { grid-area: 1 / 6; } #space-26 { grid-area: 1 / 7; } #space-27 { grid-area: 1 / 8; } #space-28 { grid-area: 1 / 9; } #space-29 { grid-area: 1 / 10; } #space-30 { grid-area: 1 / 11; } #space-31 { grid-area: 2 / 11; } #space-32 { grid-area: 3 / 11; } #space-33 { grid-area: 4 / 11; } #space-34 { grid-area: 5 / 11; } #space-35 { grid-area: 6 / 11; } #space-36 { grid-area: 7 / 11; } #space-37 { grid-area: 8 / 11; } #space-38 { grid-area: 9 / 11; } #space-39 { grid-area: 10 / 11; }
+
+        /* Center Area (Now separate controls area) */
+        .center-controls {
+            /* Mobile: order 3 (below board) */
+            order: 3;
+            width: 100%;
+            max-width: 450px; /* Match board max width */
+            margin-top: 0.5rem; /* Space above controls on mobile */
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem; /* Space between elements in controls */
+            background-color: #a4d1a8; /* Keep background similar */
+            border: 1px solid #888;
+            border-radius: 8px;
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .center-controls {
+                 /* Integrate back into board area visually */
+                 order: 2; /* Below board visually in the board area flex col */
+                 margin-top: 1rem;
+                 padding: 1rem;
+                 /* Maybe take less width on desktop? */
+                 max-width: 400px;
+            }
+        }
+
+        .property-color { height: 15%; width: 100%; border-bottom: 1px solid black; flex-shrink: 0; }
+        .space-name { font-weight: bold; padding: 1px 0; flex-grow: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; width: 100%; }
+        .space-price { font-size: 0.6rem; flex-shrink: 0; margin-top: auto; }
+
+        /* Player Markers */
+        .player-marker {
+            position: absolute;
+            width: clamp(14px, 3vmin, 20px); /* Responsive marker size */
+            height: clamp(14px, 3vmin, 20px);
+            border-radius: 50%;
+            border: 1px solid white; /* Thinner border for smaller markers */
+            box-shadow: 0 0 3px rgba(0,0,0,0.7);
+            transition: top 0.5s ease-in-out, left 0.5s ease-in-out;
+            z-index: 10;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; color: white; text-shadow: 1px 1px 1px black;
+            font-size: clamp(10px, 2vmin, 14px); /* Responsive token size */
+        }
+
+        /* Dice Styling */
+        .dice-container { display: flex; gap: 10px; }
+        .dice {
+            width: clamp(35px, 10vmin, 50px); /* Responsive dice */
+            height: clamp(35px, 10vmin, 50px);
+            background-color: white; border: 1px solid black; border-radius: 5px;
+            display: grid; padding: 5px;
+            grid-template-areas: "a . c" "e g f" "d . b";
+            box-shadow: inset 0 3px white, inset 0 -3px #bbb, inset 3px 0 #d7d7d7, inset -3px 0 #d7d7d7; /* Adjusted shadow */
+        }
+        .dot {
+            width: clamp(5px, 1.5vmin, 8px); /* Responsive dots */
+            height: clamp(5px, 1.5vmin, 8px);
+            border-radius: 50%; background-color: black;
+            display: block; align-self: center; justify-self: center;
+        }
+        /* Dot positions and visibility (no change) */
+        .dot:nth-child(1){grid-area:a}.dot:nth-child(2){grid-area:b}.dot:nth-child(3){grid-area:c}.dot:nth-child(4){grid-area:d}.dot:nth-child(5){grid-area:e}.dot:nth-child(6){grid-area:f}.dot:nth-child(7){grid-area:g}
+        .dice .dot{visibility:hidden}.dice[data-value="1"] .dot:nth-child(7){visibility:visible}.dice[data-value="2"] .dot:nth-child(1),.dice[data-value="2"] .dot:nth-child(2){visibility:visible}.dice[data-value="3"] .dot:nth-child(1),.dice[data-value="3"] .dot:nth-child(2),.dice[data-value="3"] .dot:nth-child(7){visibility:visible}.dice[data-value="4"] .dot:nth-child(1),.dice[data-value="4"] .dot:nth-child(2),.dice[data-value="4"] .dot:nth-child(3),.dice[data-value="4"] .dot:nth-child(4){visibility:visible}.dice[data-value="5"] .dot:nth-child(1),.dice[data-value="5"] .dot:nth-child(2),.dice[data-value="5"] .dot:nth-child(3),.dice[data-value="5"] .dot:nth-child(4),.dice[data-value="5"] .dot:nth-child(7){visibility:visible}.dice[data-value="6"] .dot:nth-child(1),.dice[data-value="6"] .dot:nth-child(2),.dice[data-value="6"] .dot:nth-child(3),.dice[data-value="6"] .dot:nth-child(4),.dice[data-value="6"] .dot:nth-child(5),.dice[data-value="6"] .dot:nth-child(6){visibility:visible}
+
+        /* Info Area Styling */
+        .info-area {
+            /* Mobile: order 1 (at the top) */
+            order: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem; /* Space between player panels and log */
+        }
+         @media (min-width: 768px) { /* md breakpoint */
+             .info-area {
+                 order: 2; /* Info area second on desktop */
+                 width: 33%; /* Take up 1/3 width */
+                 max-height: 90vh; /* Limit height on desktop */
+                 overflow-y: auto; /* Allow scrolling if content overflows */
+                 padding-left: 1rem; /* Add some space from the board */
+             }
+         }
+          @media (min-width: 1024px) { /* lg breakpoint */
+               .info-area {
+                   width: 25%; /* Take up 1/4 width */
+               }
+           }
+
+        /* Player Info Panels Container */
+         #player-info-panels {
+             display: flex;
+             flex-direction: column; /* Stack panels vertically */
+             gap: 0.5rem;
+         }
+         /* Optional: Horizontal scroll on mobile if too many players */
+         /* @media (max-width: 767px) {
+             #player-info-panels {
+                 flex-direction: row;
+                 overflow-x: auto;
+                 padding-bottom: 5px; // Space for scrollbar
+             }
+             .player-info {
+                 flex-shrink: 0; // Prevent shrinking when scrolling
+                 width: 250px; // Fixed width for horizontal scroll items
+             }
+         } */
+
+
+        /* Log Screen */
+        #log-container {
+             /* Mobile: order 4 (at the bottom) */
+             order: 4;
+             width: 100%;
+             margin-top: 0.5rem; /* Space above log on mobile */
+        }
+         @media (min-width: 768px) { /* md breakpoint */
+             #log-container {
+                  order: 2; /* Log below player panels in info area */
+                  margin-top: 0; /* Reset margin */
+             }
+         }
+
+        #log-screen {
+            height: 100px; /* Reduced height for mobile */
+            overflow-y: scroll; border: 1px solid #ccc; padding: 10px;
+            background-color: #f9f9f9; border-radius: 8px;
+        }
+         @media (min-width: 768px) { /* md breakpoint */
+             #log-screen {
+                 height: 150px; /* Restore height for desktop */
+             }
+         }
+        #log-screen p { margin-bottom: 5px; font-size: 0.8rem; } /* Smaller log text */
+
+        /* Notification Modal */
+        #notification-modal-content { min-width: 280px; padding: 1.5rem; } /* Adjusted for mobile */
+        #notification-message { font-size: 1rem; margin-bottom: 1rem; }
+        #notification-buttons button { padding: 0.6rem 1.2rem; font-size: 0.9rem; } /* Slightly smaller buttons */
+
+        /* Property Ownership Indicator */
+        .ownership-marker {
+            position: absolute; top: 1px; left: 1px;
+            width: clamp(8px, 2vmin, 12px); /* Responsive marker */
+            height: clamp(8px, 2vmin, 12px);
+            border-radius: 2px; border: 1px solid white;
+            box-shadow: 0 0 2px rgba(0,0,0,0.5); z-index: 1;
+        }
+
+        /* Player Info Panel */
+        .player-info { border: 1px solid #ccc; border-radius: 8px; padding: 8px; margin-bottom: 0; /* Removed bottom margin as using gap */ transition: background-color 0.3s ease; }
+        .player-info.active-player { background-color: #e0f2fe; border-color: #3b82f6; }
+        .player-properties { font-size: 0.7rem; line-height: 1.4; } /* Adjust property display */
+        .player-properties span { display: inline-block; padding: 1px 4px; margin: 1px; border-radius: 4px; border: 1px solid #ccc; }
+        .player-name-input { border: 1px solid #ccc; padding: 2px 5px; border-radius: 4px; width: 100px; }
+
+        /* Style for disabled buttons */
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Hide elements visually but keep for screen readers */
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="setup-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl text-center w-full max-w-md">
+            <h2 class="text-xl md:text-2xl font-bold mb-4 md:mb-6">Game Setup</h2>
+            <div class="mb-4">
+                <label class="block mb-2 font-semibold text-sm md:text-base">Number of Players:</label>
+                <select id="num-players" class="border rounded p-2 w-full text-sm md:text-base">
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                </select>
+            </div>
+            <div id="player-names-setup" class="mb-4 md:mb-6 text-sm md:text-base">
+                </div>
+            <button id="start-game-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-base md:text-lg w-full">
+                Start Game
+            </button>
+        </div>
+    </div>
+
+    <div class="game-container">
+
+        <div class="info-area">
+            <div id="player-info-panels">
+                </div>
+            <div id="log-container">
+                 <h3 class="text-base font-semibold mb-1 sr-only md:not-sr-only">Game Log</h3> {/* Hide title on mobile */}
+                <div id="log-screen">
+                    <p>Welcome to Bangladeshi Monopoly!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="board-area">
+            <div class="board-container">
+                <div class="board" id="game-board">
+                    </div>
+            </div>
+
+            <div class="center-controls">
+                 <h1 class="text-xl md:text-2xl font-bold text-green-900 sr-only">Bangladeshi Monopoly</h1> {/* Hide title here, maybe show elsewhere */}
+                 <div class="dice-area">
+                    <div class="dice-container">
+                        <div id="dice1" class="dice" data-value="1"> <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                        <div id="dice2" class="dice" data-value="1"> <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                </div>
+                 <div id="turn-indicator" class="text-base md:text-lg font-semibold">Player 1's Turn</div>
+                 <div id="action-buttons" class="flex flex-wrap justify-center gap-2 w-full">
+                     <button id="roll-dice-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded text-sm md:text-base flex-grow">Roll Dice</button>
+                     <button id="end-turn-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded text-sm md:text-base hidden flex-grow">End Turn</button>
+                     </div>
+            </div>
+        </div>
+
+    </div><div id="notification-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4 hidden">
+        <div id="notification-modal-content" class="bg-white p-6 rounded-lg shadow-xl text-center w-full max-w-sm">
+            <p id="notification-message" class="mb-4">Notification Text</p>
+            <div id="notification-buttons" class="flex flex-wrap justify-center gap-2">
+                </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Game Configuration ---
+        const STARTING_MONEY = 15000;
+        const GO_SALARY = 2000;
+        const JAIL_FINE = 500;
+        const PLAYER_COLORS = ['#FF0000', '#0000FF', '#008000', '#FFFF00'];
+        const PLAYER_TOKENS = ['🚗', '🎩', '🚢', '👢'];
+
+        // --- Board Definition (No Change) ---
+        const boardSpaces = [ { name: "শুরু (Go)", type: "go" }, { name: "পুরান ঢাকা", price: 600, rent: 20, group: "Brown", type: "property", color: "bg-yellow-800" }, { name: "কমিউনিটি চেস্ট", type: "community-chest" }, { name: "লালবাগ কেল্লা", price: 600, rent: 40, group: "Brown", type: "property", color: "bg-yellow-800" }, { name: "আয়কর (Income Tax)", type: "tax", amount: 2000 }, { name: "কমলাপুর স্টেশন", price: 2000, rent: 250, type: "station" }, { name: "মতিঝিল", price: 1000, rent: 60, group: "LightBlue", type: "property", color: "bg-sky-300" }, { name: "চান্স", type: "chance" }, { name: "দিলকুশা", price: 1000, rent: 60, group: "LightBlue", type: "property", color: "bg-sky-300" }, { name: "নয়া পল্টন", price: 1200, rent: 80, group: "LightBlue", type: "property", color: "bg-sky-300" }, { name: "জেল (Jail)", type: "jail" }, { name: "ফার্মগেট", price: 1400, rent: 100, group: "Pink", type: "property", color: "bg-pink-500" }, { name: "বিদ্যুৎ সরবরাহ (Electric)", price: 1500, type: "utility" }, { name: "এলিফ্যান্ট রোড", price: 1400, rent: 100, group: "Pink", type: "property", color: "bg-pink-500" }, { name: "নিউ মার্কেট", price: 1600, rent: 120, group: "Pink", type: "property", color: "bg-pink-500" }, { name: "বিমানবন্দর স্টেশন", price: 2000, rent: 250, type: "station" }, { name: "ধানমন্ডি", price: 1800, rent: 140, group: "Orange", type: "property", color: "bg-orange-500" }, { name: "কমিউনিটি চেস্ট", type: "community-chest" }, { name: "মোহাম্মদপুর", price: 1800, rent: 140, group: "Orange", type: "property", color: "bg-orange-500" }, { name: "শ্যামলী", price: 2000, rent: 160, group: "Orange", type: "property", color: "bg-orange-500" }, { name: "ফ্রি পার্কিং", type: "free-parking" }, { name: "গুলশান", price: 2200, rent: 180, group: "Red", type: "property", color: "bg-red-500" }, { name: "চান্স", type: "chance" }, { name: "বনানী", price: 2200, rent: 180, group: "Red", type: "property", color: "bg-red-500" }, { name: "বারিধারা", price: 2400, rent: 200, group: "Red", type: "property", color: "bg-red-500" }, { name: "চট্টগ্রাম স্টেশন", price: 2000, rent: 250, type: "station" }, { name: "উত্তরা", price: 2600, rent: 220, group: "Yellow", type: "property", color: "bg-yellow-400" }, { name: "মিরপুর", price: 2600, rent: 220, group: "Yellow", type: "property", color: "bg-yellow-400" }, { name: "পানি সরবরাহ (Water Works)", price: 1500, type: "utility" }, { name: "বসুন্ধরা", price: 2800, rent: 240, group: "Yellow", type: "property", color: "bg-yellow-400" }, { name: "জেলে যাও (Go to Jail)", type: "go-to-jail" }, { name: "কক্সবাজার", price: 3000, rent: 260, group: "Green", type: "property", color: "bg-green-600" }, { name: "সেন্ট মার্টিন", price: 3000, rent: 260, group: "Green", type: "property", color: "bg-green-600" }, { name: "কমিউনিটি চেস্ট", type: "community-chest" }, { name: "বান্দরবান", price: 3200, rent: 280, group: "Green", type: "property", color: "bg-green-600" }, { name: "সিলেট স্টেশন", price: 2000, rent: 250, type: "station" }, { name: "চান্স", type: "chance" }, { name: "শ্রীমঙ্গল", price: 3500, rent: 350, group: "DarkBlue", type: "property", color: "bg-blue-800" }, { name: "বিলাস কর (Luxury Tax)", type: "tax", amount: 1000 }, { name: "জাফলং", price: 4000, rent: 500, group: "DarkBlue", type: "property", color: "bg-blue-800" } ];
+        const chanceCards = [ { text: "Advance to Go (Collect ৳2000).", action: "move_to", spaceIndex: 0, collectGo: true }, { text: "Advance to মতিঝিল.", action: "move_to", spaceIndex: 6 }, { text: "Advance token to nearest Utility...", action: "move_to_nearest", type: "utility" }, { text: "Advance token to the nearest Station...", action: "move_to_nearest", type: "station", rentMultiplier: 2 }, { text: "Bank pays you dividend of ৳500.", action: "add_money", amount: 500 }, { text: "Get Out of Jail Free card.", action: "get_out_of_jail_free" }, { text: "Go Back 3 Spaces.", action: "move_relative", steps: -3 }, { text: "Go to Jail...", action: "go_to_jail" }, { text: "Make general repairs...", action: "repairs", houseCost: 250, hotelCost: 1000 }, { text: "Pay poor tax of ৳150.", action: "remove_money", amount: 150 }, { text: "Take a trip to কমলাপুর Station...", action: "move_to", spaceIndex: 5, collectGo: true }, { text: "Advance to জাফলং.", action: "move_to", spaceIndex: 39 }, { text: "You have been elected Chairman...", action: "pay_players", amount: 500 }, { text: "Your building loan matures...", action: "add_money", amount: 1500 } ];
+        const communityChestCards = [ { text: "Advance to Go (Collect ৳2000).", action: "move_to", spaceIndex: 0, collectGo: true }, { text: "Bank error in your favor...", action: "add_money", amount: 2000 }, { text: "Doctor’s fee. Pay ৳500.", action: "remove_money", amount: 500 }, { text: "From sale of stock you get ৳500.", action: "add_money", amount: 500 }, { text: "Get Out of Jail Free card.", action: "get_out_of_jail_free" }, { text: "Go to Jail...", action: "go_to_jail" }, { text: "Holiday fund matures...", action: "add_money", amount: 1000 }, { text: "Income tax refund...", action: "add_money", amount: 200 }, { text: "It is your birthday...", action: "collect_from_players", amount: 100 }, { text: "Life insurance matures...", action: "add_money", amount: 1000 }, { text: "Pay hospital fees of ৳1000.", action: "remove_money", amount: 1000 }, { text: "Pay school fees of ৳500.", action: "remove_money", amount: 500 }, { text: "Receive ৳250 consultancy fee.", action: "add_money", amount: 250 }, { text: "You are assessed for street repairs...", action: "repairs", houseCost: 400, hotelCost: 1150 }, { text: "You have won second prize...", action: "add_money", amount: 100 }, { text: "You inherit ৳1000.", action: "add_money", amount: 1000 } ];
+
+        // --- Game State (No Change) ---
+        let players = [];
+        let currentPlayerIndex = 0;
+        let gameStarted = false;
+        let dice1Value = 0;
+        let dice2Value = 0;
+        let doublesCount = 0;
+        let shuffledChanceCards = [];
+        let shuffledCommunityChestCards = [];
+        let chanceCardIndex = 0;
+        let communityChestCardIndex = 0;
+        let turnActionsCompleted = false;
+
+        // --- DOM Elements ---
+        let boardContainer, gameContainer, boardElement, centerControls, setupModal, startGameBtn, numPlayersSelect,
+            playerNamesSetupDiv, playerInfoPanelsDiv, logScreen, logContainer, dice1Element, dice2Element,
+            rollDiceBtn, endTurnBtn, turnIndicator, notificationModal, notificationMessage,
+            notificationButtons, actionButtonsDiv;
+
+        // --- Utility Functions (No Change) ---
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
+        function logMessage(message) { if (!logScreen) return; const p = document.createElement('p'); p.textContent = message; logScreen.appendChild(p); logScreen.scrollTop = logScreen.scrollHeight; }
+        function formatMoney(amount) { if (typeof amount !== 'number' || isNaN(amount)) { console.warn("Invalid amount:", amount); return '৳NaN'; } return `৳${amount.toLocaleString('en-IN')}`; }
+
+        // --- Dice Functions (No Change) ---
+        function rollDice() { dice1Value = Math.floor(Math.random() * 6) + 1; dice2Value = Math.floor(Math.random() * 6) + 1; if (dice1Element && dice2Element) { dice1Element.dataset.value = dice1Value; dice2Element.dataset.value = dice2Value; } return { roll1: dice1Value, roll2: dice2Value, total: dice1Value + dice2Value, isDouble: dice1Value === dice2Value }; }
+
+        // --- Player Functions (No Change) ---
+        function createPlayer(id, name) { return { id: id, name: name, money: STARTING_MONEY, position: 0, properties: [], stationsOwned: 0, utilitiesOwned: 0, inJail: false, jailTurns: 0, getOutOfJailFreeCards: 0, color: PLAYER_COLORS[id % PLAYER_COLORS.length], token: PLAYER_TOKENS[id % PLAYER_TOKENS.length], bankrupt: false }; }
+        function updatePlayerInfoPanel(player) { if (!playerInfoPanelsDiv) return; const panel = document.getElementById(`player-info-${player.id}`); if (!panel) return; const moneyEl = panel.querySelector('.player-money'); const propsDiv = panel.querySelector('.player-properties'); const statusDiv = panel.querySelector('.player-status'); if (moneyEl) moneyEl.textContent = `Money: ${formatMoney(player.money)}`; if (statusDiv) { let statusText = ''; if (player.inJail) statusText += ' (In Jail)'; if (player.getOutOfJailFreeCards > 0) statusText += ` (${player.getOutOfJailFreeCards}x Get Out of Jail Free)`; statusDiv.textContent = statusText; } if (propsDiv) { propsDiv.innerHTML = 'Properties: '; player.properties.sort((a, b) => a - b); player.properties.forEach(propIndex => { const space = boardSpaces[propIndex]; if (!space) return; const propSpan = document.createElement('span'); propSpan.textContent = space.name; const bgColorClass = space.color ? space.color.replace('bg-', 'bg-opacity-20') : 'bg-gray-200'; const borderColorClass = space.color ? space.color.replace('bg-', 'border-') : 'border-gray-400'; propSpan.className = `inline-block p-1 m-1 rounded text-xs border ${bgColorClass} ${borderColorClass}`; propSpan.title = `Rent: ${formatMoney(space.rent || 0)}`; propsDiv.appendChild(propSpan); }); } if (player.id === currentPlayerIndex && gameStarted) { panel.classList.add('active-player', 'border-blue-500', 'border-2'); panel.classList.remove('border-gray-300'); } else { panel.classList.remove('active-player', 'border-blue-500', 'border-2'); panel.classList.add('border-gray-300'); } }
+        function movePlayer(player, steps) { const oldPosition = player.position; if (typeof steps !== 'number' || isNaN(steps)) { console.error("Invalid steps:", steps); checkTurnEnd(); return; } player.position = (player.position + steps) % boardSpaces.length; const newPosition = player.position; const oldSpaceName = boardSpaces[oldPosition]?.name ?? `Space ${oldPosition}`; const newSpaceName = boardSpaces[newPosition]?.name ?? `Space ${newPosition}`; logMessage(`${player.name} rolled ${dice1Value} + ${dice2Value} = ${steps}. Moves from ${oldSpaceName} to ${newSpaceName}.`); if (newPosition < oldPosition && !player.inJail) { const intendedDestinationIndex = (oldPosition + steps); const intendedSpace = boardSpaces[intendedDestinationIndex]; const landedOnGoToJail = intendedSpace?.type === 'go-to-jail'; if (!landedOnGoToJail) { player.money += GO_SALARY; logMessage(`${player.name} passed Go and collected ${formatMoney(GO_SALARY)}.`); updatePlayerInfoPanel(player); } } updatePlayerMarkerPosition(player); setTimeout(() => handleSpaceAction(player, newPosition), 600); }
+        function sendPlayerToJail(player) { logMessage(`${player.name} is going to Jail!`); const jailSpaceIndex = boardSpaces.findIndex(space => space.type === 'jail'); if (jailSpaceIndex === -1) { console.error("Jail space not found!"); checkTurnEnd(); return; } player.position = jailSpaceIndex; player.inJail = true; player.jailTurns = 0; doublesCount = 0; updatePlayerMarkerPosition(player); updatePlayerInfoPanel(player); if (rollDiceBtn) rollDiceBtn.disabled = true; if (endTurnBtn) endTurnBtn.classList.add('hidden'); setTimeout(endCurrentTurn, 600); }
+        function getPlayerById(id) { return players.find(p => p.id === id); }
+
+        // --- Board Drawing ---
+        function drawBoard() {
+            if (!boardElement) { console.error("Board element not found for drawing."); return; }
+            // Clear only the spaces, not the center controls container if it were inside
+            const spaces = boardElement.querySelectorAll('.space, .corner');
+            spaces.forEach(s => s.remove());
+
+            // Re-add ownership markers container maybe? Or handle per space
+            // boardElement.innerHTML = ''; // Simpler to clear all children?
+
+            boardSpaces.forEach((space, index) => {
+                const spaceDiv = document.createElement('div');
+                spaceDiv.id = `space-${index}`;
+                spaceDiv.classList.add('space');
+
+                // Grid Area Assignment
+                if (index === 0 || index === 10 || index === 20 || index === 30) { spaceDiv.classList.add('corner'); }
+                else if (index > 0 && index < 10) { spaceDiv.classList.add('bottom-row'); spaceDiv.style.gridColumn = `${11 - index} / span 1`; }
+                else if (index > 10 && index < 20) { spaceDiv.classList.add('left-col'); spaceDiv.style.gridRow = `${11 - (index - 10)} / span 1`; }
+                else if (index > 20 && index < 30) { spaceDiv.classList.add('top-row'); spaceDiv.style.gridColumn = `${index - 20 + 1} / span 1`; }
+                else if (index > 30 && index < 40) { spaceDiv.classList.add('right-col'); spaceDiv.style.gridRow = `${index - 30 + 1} / span 1`; }
+
+                 // Content Creation
+                 const nameDiv = document.createElement('div'); nameDiv.classList.add('space-name');
+                 let icon = ''; let nameContent = space.name; let priceDiv = null;
+
+                 if (space.type === 'property' && space.color) { const colorDiv = document.createElement('div'); colorDiv.classList.add('property-color', space.color); spaceDiv.appendChild(colorDiv); }
+
+                 switch (space.type) {
+                     case 'property': case 'station': case 'utility':
+                         if (space.price) { priceDiv = document.createElement('div'); priceDiv.classList.add('space-price'); priceDiv.textContent = formatMoney(space.price); }
+                         if (space.type === 'station') icon = '🚂'; if (space.type === 'utility') icon = '💡'; break;
+                     case 'tax': icon = '💸'; nameContent += `<br>(${formatMoney(space.amount)})`; break;
+                     case 'chance': nameContent = 'চান্স'; icon = '❓'; nameDiv.classList.add('text-blue-600', 'font-bold'); break;
+                     case 'community-chest': nameContent = 'কমিউনিটি<br>চেস্ট'; icon = '🎁'; nameDiv.classList.add('text-orange-500', 'font-bold'); break;
+                     case 'go': nameContent = 'শুরু <br> Collect <br>' + formatMoney(GO_SALARY); icon = '🏁'; nameDiv.classList.add('text-red-600', 'font-bold'); break;
+                     case 'jail': nameContent = 'জেল / <br> শুধু পরিদর্শন'; icon = '👮'; break;
+                     case 'free-parking': nameContent = 'ফ্রি <br> পার্কিং'; icon = '🅿️'; break;
+                     case 'go-to-jail': nameContent = 'জেলে <br> যাও'; icon = '🚓'; break;
+                 }
+                 nameDiv.innerHTML = nameContent + (icon ? `<br><span class="text-xl">${icon}</span>` : '');
+                 spaceDiv.appendChild(nameDiv);
+                 if (priceDiv) spaceDiv.appendChild(priceDiv);
+                 boardElement.appendChild(spaceDiv);
+            });
+        }
+
+        function drawPlayerMarkers() { if (!boardElement) return; boardElement.querySelectorAll('.player-marker').forEach(marker => marker.remove()); players.forEach(player => { if (player.bankrupt) return; const marker = document.createElement('div'); marker.id = `player-marker-${player.id}`; marker.classList.add('player-marker'); marker.style.backgroundColor = player.color; marker.textContent = player.token; boardElement.appendChild(marker); updatePlayerMarkerPosition(player); }); }
+        function updatePlayerMarkerPosition(player) { if (!boardElement) return; const marker = document.getElementById(`player-marker-${player.id}`); const spaceElement = document.getElementById(`space-${player.position}`); if (!marker || !spaceElement) return; const boardRect = boardElement.getBoundingClientRect(); const spaceRect = spaceElement.getBoundingClientRect(); let targetLeft = spaceRect.left - boardRect.left + spaceRect.width / 2 - marker.offsetWidth / 2; let targetTop = spaceRect.top - boardRect.top + spaceRect.height / 2 - marker.offsetHeight / 2; const offsetMagnitude = clamp(4, 1.5 * window.innerWidth / 100, 6); /* Responsive offset */ const angle = (player.id / players.length) * 2 * Math.PI; targetLeft += Math.cos(angle) * offsetMagnitude; targetTop += Math.sin(angle) * offsetMagnitude; marker.style.left = `${targetLeft}px`; marker.style.top = `${targetTop}px`; }
+        function updatePropertyOwnershipVisual(spaceIndex, playerId) { const spaceElement = document.getElementById(`space-${spaceIndex}`); if (!spaceElement) return; const existingMarker = spaceElement.querySelector('.ownership-marker'); if (existingMarker) existingMarker.remove(); if (playerId !== null && playerId !== undefined) { const player = getPlayerById(playerId); if (!player || player.bankrupt) return; const marker = document.createElement('div'); marker.classList.add('ownership-marker'); marker.style.backgroundColor = player.color; marker.title = `Owned by ${player.name}`; spaceElement.prepend(marker); } }
+
+        // --- Game Logic ---
+        function setupGame() {
+             if (!numPlayersSelect || !playerNamesSetupDiv || !setupModal || !logScreen || !rollDiceBtn || !endTurnBtn) { console.error("Setup failed: DOM elements missing."); alert("Error initializing game UI."); return; }
+            const numPlayers = parseInt(numPlayersSelect.value); players = [];
+             boardSpaces.forEach(space => { delete space.owner; });
+            for (let i = 0; i < numPlayers; i++) { const nameInput = document.getElementById(`player-name-${i}`); const playerName = nameInput ? (nameInput.value.trim() || `Player ${i + 1}`) : `Player ${i + 1}`; players.push(createPlayer(i, playerName)); }
+            currentPlayerIndex = 0; gameStarted = true; doublesCount = 0; chanceCardIndex = 0; communityChestCardIndex = 0; turnActionsCompleted = false;
+            shuffledChanceCards = [...chanceCards]; shuffledCommunityChestCards = [...communityChestCards]; shuffleArray(shuffledChanceCards); shuffleArray(shuffledCommunityChestCards);
+            logScreen.innerHTML = ''; logMessage(`Game started with ${numPlayers} players.`); players.forEach(p => logMessage(`${p.name} (${p.token}) joins with ${formatMoney(p.money)}.`));
+            drawBoard(); drawPlayerMarkers(); setupPlayerInfoPanels(); updateAllPlayerPanels();
+            setupModal.classList.add('hidden'); rollDiceBtn.disabled = false; endTurnBtn.classList.add('hidden'); updateTurnIndicator();
+        }
+        function setupPlayerInfoPanels() { if (!playerInfoPanelsDiv) return; playerInfoPanelsDiv.innerHTML = ''; players.forEach(player => { const panel = document.createElement('div'); panel.id = `player-info-${player.id}`; panel.classList.add('player-info', 'bg-white', 'p-2', 'md:p-4', 'rounded-lg', 'shadow', 'border', 'border-gray-300'); panel.innerHTML = ` <div class="flex justify-between items-center mb-1 md:mb-2"> <div class="flex items-center gap-1 md:gap-2"> <span class="inline-block w-4 h-4 md:w-5 md:h-5 rounded-full border border-gray-400" style="background-color: ${player.color};"></span> <span class="font-bold text-sm md:text-base player-name">${player.name} ${player.token}</span> <span class="text-xs md:text-sm text-gray-600 player-status"></span> </div> <span class="font-semibold text-sm md:text-base player-money">${formatMoney(player.money)}</span> </div> <div class="text-xs md:text-sm player-properties">Properties: None</div> `; playerInfoPanelsDiv.appendChild(panel); }); }
+        function updateAllPlayerPanels() { players.forEach(p => { if (!p.bankrupt) { updatePlayerInfoPanel(p); } else { const panel = document.getElementById(`player-info-${p.id}`); if (panel) { panel.classList.add('opacity-50'); const statusEl = panel.querySelector('.player-status'); if(statusEl) statusEl.textContent = ' (Bankrupt)'; } } }); }
+        function updateTurnIndicator() { if (!turnIndicator) return; if (!players[currentPlayerIndex]) { console.error("Invalid player index:", currentPlayerIndex); turnIndicator.textContent = "Game Over?"; return; } const currentPlayer = players[currentPlayerIndex]; turnIndicator.textContent = `${currentPlayer.name}'s Turn`; updateAllPlayerPanels(); }
+
+        // --- Action Handling (handleRollDiceClick, handleJailTurn, handleJailChoice, handleSpaceAction, handlePropertyLanding, buyProperty, calculateRent, payTax, drawCard, executeCardAction) ---
+        // These functions remain largely the same logically, ensure DOM elements are checked before use.
+        // (Code for these functions is omitted for brevity but assumed to be the same as previous version, with null checks for DOM elements)
+        function handleRollDiceClick() { const currentPlayer = players[currentPlayerIndex]; if (!rollDiceBtn || rollDiceBtn.disabled || !currentPlayer || currentPlayer.bankrupt) return; if (currentPlayer.inJail) { rollDiceBtn.disabled = true; handleJailTurn(currentPlayer); return; } rollDiceBtn.disabled = true; turnActionsCompleted = false; const { roll1, roll2, total, isDouble } = rollDice(); if (isDouble) { doublesCount++; logMessage(`${currentPlayer.name} rolled doubles (${roll1})!`); if (doublesCount === 3) { logMessage(`3 doubles! ${currentPlayer.name} goes to Jail!`); sendPlayerToJail(currentPlayer); return; } } else { doublesCount = 0; } movePlayer(currentPlayer, total); }
+        function handleJailTurn(player) { player.jailTurns++; logMessage(`${player.name} in Jail (Turn ${player.jailTurns}).`); let options = []; if (player.money >= JAIL_FINE) options.push({ text: `Pay ${formatMoney(JAIL_FINE)}`, action: 'pay_jail_fine' }); if (player.getOutOfJailFreeCards > 0) options.push({ text: "Use Card", action: 'use_jail_card' }); options.push({ text: "Roll Doubles", action: 'roll_for_jail' }); if (player.jailTurns < 3) { options.push({ text: "Stay", action: 'stay_in_jail' }); } else { logMessage("Must pay/use card or roll."); if (player.money < JAIL_FINE && player.getOutOfJailFreeCards === 0) { options = [{ text: "Roll (Last Chance)", action: 'roll_for_jail' }]; } else { options = options.filter(opt => opt.action !== 'roll_for_jail'); } } showNotification(`${player.name}, Jail Turn ${player.jailTurns}. Action?`, options.map(opt => createButton(opt.text, () => handleJailChoice(player, opt.action)))); }
+        function handleJailChoice(player, choice) { hideNotification(); switch (choice) { case 'pay_jail_fine': if (player.money >= JAIL_FINE) { player.money -= JAIL_FINE; player.inJail = false; player.jailTurns = 0; logMessage(`${player.name} paid to leave Jail.`); updatePlayerInfoPanel(player); if(rollDiceBtn) rollDiceBtn.disabled = false; turnActionsCompleted = true; checkTurnEnd(); } else { logMessage("Not enough money."); handleJailTurn(player); } break; case 'use_jail_card': if (player.getOutOfJailFreeCards > 0) { player.getOutOfJailFreeCards--; player.inJail = false; player.jailTurns = 0; logMessage(`${player.name} used card to leave Jail.`); updatePlayerInfoPanel(player); if(rollDiceBtn) rollDiceBtn.disabled = false; turnActionsCompleted = true; checkTurnEnd(); } else { logMessage("No card."); handleJailTurn(player); } break; case 'roll_for_jail': const { roll1, roll2, total, isDouble } = rollDice(); logMessage(`${player.name} rolled ${roll1}, ${roll2} trying for doubles.`); if (isDouble) { logMessage(`Success! Out of Jail.`); player.inJail = false; player.jailTurns = 0; doublesCount = 0; updatePlayerInfoPanel(player); turnActionsCompleted = false; movePlayer(player, total); } else { logMessage(`Failed.`); if (player.jailTurns >= 3) { logMessage(`Must pay fine now.`); if (player.money >= JAIL_FINE) { player.money -= JAIL_FINE; player.inJail = false; player.jailTurns = 0; updatePlayerInfoPanel(player); logMessage(`${player.name} paid fine.`); turnActionsCompleted = false; movePlayer(player, total); } else { logMessage(`${player.name} cannot afford fine! Bankruptcy?`); endCurrentTurn(); } } else { endCurrentTurn(); } } break; case 'stay_in_jail': logMessage(`${player.name} stays in Jail.`); endCurrentTurn(); break; } }
+        function handleSpaceAction(player, spaceIndex) { if (spaceIndex < 0 || spaceIndex >= boardSpaces.length) { console.error(`Invalid spaceIndex: ${spaceIndex}`); checkTurnEnd(); return; } const space = boardSpaces[spaceIndex]; if (!space) { console.error(`No space definition: ${spaceIndex}`); checkTurnEnd(); return; } logMessage(`${player.name} landed on ${space.name}.`); turnActionsCompleted = false; switch (space.type) { case 'property': case 'station': case 'utility': handlePropertyLanding(player, spaceIndex); break; case 'go': logMessage("Landed on Go."); turnActionsCompleted = true; checkTurnEnd(); break; case 'community-chest': drawCard('community-chest', player); break; case 'chance': drawCard('chance', player); break; case 'tax': payTax(player, space.amount, space.name); break; case 'jail': logMessage(`${player.name} just visiting Jail.`); turnActionsCompleted = true; checkTurnEnd(); break; case 'free-parking': logMessage(`Free parking!`); turnActionsCompleted = true; checkTurnEnd(); break; case 'go-to-jail': sendPlayerToJail(player); break; default: logMessage(`Unhandled space: ${space.type}`); turnActionsCompleted = true; checkTurnEnd(); break; } updateAllPlayerPanels(); }
+        function handlePropertyLanding(player, spaceIndex) { const space = boardSpaces[spaceIndex]; const ownerId = space.owner; if (ownerId === undefined || ownerId === null) { if (player.money >= space.price) { showNotification(`${space.name} (${formatMoney(space.price)}) unowned. Buy?`, [ createButton("Yes", () => buyProperty(player, spaceIndex)), createButton("No", () => { logMessage(`${player.name} declined buy.`); hideNotification(); turnActionsCompleted = true; checkTurnEnd(); }) ]); } else { logMessage(`${player.name} cannot afford ${space.name}.`); turnActionsCompleted = true; checkTurnEnd(); } } else if (ownerId === player.id) { logMessage(`${player.name} on own property: ${space.name}.`); turnActionsCompleted = true; checkTurnEnd(); } else { const owner = getPlayerById(ownerId); if (owner && !owner.bankrupt && !owner.inJail) { let rentAmount = calculateRent(spaceIndex, owner, dice1Value + dice2Value); logMessage(`${player.name} pays ${formatMoney(rentAmount)} rent to ${owner.name}.`); if (player.money >= rentAmount) { showNotification(`Pay ${formatMoney(rentAmount)} rent to ${owner.name}?`, [createButton("Pay Rent", () => { player.money -= rentAmount; owner.money += rentAmount; logMessage(`Paid rent.`); hideNotification(); updatePlayerInfoPanel(player); updatePlayerInfoPanel(owner); turnActionsCompleted = true; checkTurnEnd(); })]); } else { logMessage(`${player.name} cannot afford rent! Bankruptcy?`); turnActionsCompleted = true; checkTurnEnd(); } } else if (owner && owner.inJail) { logMessage(`${owner.name} in Jail, no rent.`); turnActionsCompleted = true; checkTurnEnd(); } else if (owner && owner.bankrupt) { logMessage(`${owner.name} bankrupt, no rent.`); turnActionsCompleted = true; checkTurnEnd(); } else { logMessage(`Rent not applicable.`); turnActionsCompleted = true; checkTurnEnd(); } } }
+        function buyProperty(player, spaceIndex) { hideNotification(); const space = boardSpaces[spaceIndex]; if (player.money >= space.price && (space.owner === undefined || space.owner === null)) { player.money -= space.price; space.owner = player.id; player.properties.push(spaceIndex); if (space.type === 'station') player.stationsOwned++; if (space.type === 'utility') player.utilitiesOwned++; logMessage(`${player.name} bought ${space.name}.`); updatePlayerInfoPanel(player); updatePropertyOwnershipVisual(spaceIndex, player.id); turnActionsCompleted = true; } else { logMessage(`Error buying.`); turnActionsCompleted = true; } checkTurnEnd(); }
+        function calculateRent(spaceIndex, owner, diceRoll) { const space = boardSpaces[spaceIndex]; if (!owner || !space) return 0; switch (space.type) { case 'property': return space.rent || 0; case 'station': const stationsOwned = owner.properties.filter(propIdx => boardSpaces[propIdx]?.type === 'station').length; return (space.rent || 250) * Math.pow(2, Math.max(0, stationsOwned - 1)); case 'utility': const utilitiesOwned = owner.properties.filter(propIdx => boardSpaces[propIdx]?.type === 'utility').length; if (utilitiesOwned === 1) return 40 * diceRoll; if (utilitiesOwned >= 2) return 100 * diceRoll; return 0; default: return 0; } }
+        function payTax(player, amount, taxName) { logMessage(`${player.name} pays ${formatMoney(amount)} for ${taxName}.`); if (player.money >= amount) { showNotification(`Pay ${formatMoney(amount)} for ${taxName}?`, [createButton("Pay Tax", () => { player.money -= amount; logMessage(`Paid tax.`); hideNotification(); updatePlayerInfoPanel(player); turnActionsCompleted = true; checkTurnEnd(); })]); } else { logMessage(`${player.name} cannot afford tax! Bankruptcy?`); turnActionsCompleted = true; checkTurnEnd(); } }
+        function drawCard(deckType, player) { let card, deck, indexRef, deckName; if (deckType === 'chance') { deck = shuffledChanceCards; indexRef = { index: chanceCardIndex }; deckName = 'Chance'; } else { deck = shuffledCommunityChestCards; indexRef = { index: communityChestCardIndex }; deckName = 'Community Chest'; } if (!deck || deck.length === 0) { logMessage(`No ${deckName} cards left!`); turnActionsCompleted = true; checkTurnEnd(); return; } card = deck[indexRef.index]; indexRef.index = (indexRef.index + 1) % deck.length; if (deckType === 'chance') { chanceCardIndex = indexRef.index; if (chanceCardIndex === 0) shuffleArray(deck); } else { communityChestCardIndex = indexRef.index; if (communityChestCardIndex === 0) shuffleArray(deck); } logMessage(`${player.name} drew ${deckName}: "${card.text}"`); showNotification(`${deckName}: ${card.text}`, [createButton("OK", () => { hideNotification(); executeCardAction(player, card); })]); }
+        function executeCardAction(player, card) { turnActionsCompleted = true; switch (card.action) { case 'add_money': player.money += card.amount; logMessage(`Received ${formatMoney(card.amount)}.`); break; case 'remove_money': if (player.money >= card.amount) { player.money -= card.amount; logMessage(`Paid ${formatMoney(card.amount)}.`); } else { logMessage(`Cannot afford ${formatMoney(card.amount)}!`); } break; case 'move_to': const oldPos = player.position; if (typeof card.spaceIndex !== 'number' || card.spaceIndex < 0 || card.spaceIndex >= boardSpaces.length) { console.error("Invalid card index:", card); break; } player.position = card.spaceIndex; if (card.collectGo && player.position < oldPos && oldPos !== player.position) { player.money += GO_SALARY; logMessage(`Passed Go, collected ${formatMoney(GO_SALARY)}.`); } logMessage(`Moved to ${boardSpaces[player.position]?.name}.`); updatePlayerMarkerPosition(player); turnActionsCompleted = false; setTimeout(() => handleSpaceAction(player, player.position), 100); return; case 'move_relative': const currentPos = player.position; const steps = card.steps || 0; const targetPos = (currentPos + steps + boardSpaces.length) % boardSpaces.length; player.position = targetPos; logMessage(`Moved ${steps > 0 ? steps : -steps} spaces to ${boardSpaces[player.position]?.name}.`); updatePlayerMarkerPosition(player); turnActionsCompleted = false; setTimeout(() => handleSpaceAction(player, player.position), 100); return; case 'go_to_jail': sendPlayerToJail(player); return; case 'get_out_of_jail_free': player.getOutOfJailFreeCards++; logMessage(`Received Get Out of Jail Free card.`); break; case 'pay_players': /* Simplified */ logMessage(`Pay players action.`); break; case 'collect_from_players': /* Simplified */ logMessage(`Collect from players action.`); break; case 'move_to_nearest': /* Simplified */ logMessage(`Move to nearest ${card.type} action.`); turnActionsCompleted = false; setTimeout(() => checkTurnEnd(), 100); return; /* Needs proper implementation */ case 'repairs': logMessage(`Repairs action (not implemented).`); break; default: logMessage(`Unknown card action: ${card.action}`); } updatePlayerInfoPanel(player); if (turnActionsCompleted) checkTurnEnd(); }
+
+
+        // --- Turn Management ---
+        function checkTurnEnd() {
+             const currentPlayer = players[currentPlayerIndex];
+             if (!rollDiceBtn || !endTurnBtn || !currentPlayer || currentPlayer.bankrupt || currentPlayer.inJail) { return; }
+             if (doublesCount > 0 && doublesCount < 3) { rollDiceBtn.disabled = false; endTurnBtn.classList.add('hidden'); }
+             else if (turnActionsCompleted) { rollDiceBtn.disabled = true; endTurnBtn.classList.remove('hidden'); }
+             else { rollDiceBtn.disabled = true; endTurnBtn.classList.add('hidden'); }
+        }
+        function endCurrentTurn() {
+            const currentPlayer = players[currentPlayerIndex];
+            if (!endTurnBtn || !rollDiceBtn || !currentPlayer) { console.error("Cannot end turn."); return; }
+            if (endTurnBtn.disabled) return; endTurnBtn.disabled = true;
+            logMessage(`${currentPlayer.name}'s turn ends.`); doublesCount = 0; turnActionsCompleted = false;
+            const activePlayers = players.filter(p => !p.bankrupt);
+             if (activePlayers.length <= 1) { const winner = activePlayers[0]; logMessage(`--- GAME OVER ---`); if (winner) { logMessage(`${winner.name} wins!`); showNotification(`${winner.name} wins!`, [createButton("New Game?", () => { hideNotification(); setupModal.classList.remove('hidden'); gameStarted = false; if(playerInfoPanelsDiv) playerInfoPanelsDiv.innerHTML = ''; if(boardElement) { boardElement.querySelectorAll('.player-marker').forEach(m => m.remove()); boardElement.querySelectorAll('.ownership-marker').forEach(m => m.remove()); } if(logScreen) logScreen.innerHTML = '<p>Game Over.</p>'; if (numPlayersSelect) numPlayersSelect.dispatchEvent(new Event('change')); })]); } else { logMessage("No winner?"); showNotification("Game Over!", [createButton("OK", hideNotification)]); } rollDiceBtn.disabled = true; endTurnBtn.classList.add('hidden'); return; }
+            let nextPlayerFound = false; let loopCheck = 0;
+            do { currentPlayerIndex = (currentPlayerIndex + 1) % players.length; if (!players[currentPlayerIndex].bankrupt) nextPlayerFound = true; loopCheck++; } while (!nextPlayerFound && loopCheck < players.length * 2);
+             if (!nextPlayerFound) { console.error("No next active player."); return; }
+            rollDiceBtn.disabled = false; endTurnBtn.classList.add('hidden'); endTurnBtn.disabled = false;
+            if(actionButtonsDiv) actionButtonsDiv.querySelectorAll('.dynamic-action-btn').forEach(btn => btn.remove());
+            updateTurnIndicator(); logMessage(`--- ${players[currentPlayerIndex].name}'s turn ---`);
+             if (players[currentPlayerIndex].inJail) { logMessage(`${players[currentPlayerIndex].name} starts in Jail.`); }
+        }
+
+        // --- Notification Modal ---
+        function showNotification(message, buttons = [createButton("OK", hideNotification)]) { if (!notificationModal || !notificationMessage || !notificationButtons) return; notificationMessage.textContent = message; notificationButtons.innerHTML = ''; buttons.forEach(button => notificationButtons.appendChild(button)); notificationModal.classList.remove('hidden'); }
+        function hideNotification() { if(notificationModal) notificationModal.classList.add('hidden'); }
+        function createButton(text, onClickAction) { const button = document.createElement('button'); button.textContent = text; button.className = "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded text-sm md:text-base transition duration-150 ease-in-out dynamic-action-btn m-1 flex-grow sm:flex-grow-0"; /* Allow wrapping */ button.onclick = onClickAction; return button; }
+
+        // --- Clamp Utility ---
+        function clamp(number, min, max) { return Math.max(min, Math.min(number, max)); }
+
+        // --- Event Listeners Setup ---
+        function setupEventListeners() {
+            if (numPlayersSelect) {
+                numPlayersSelect.addEventListener('change', (e) => {
+                    if (!playerNamesSetupDiv) return; const count = parseInt(e.target.value); playerNamesSetupDiv.innerHTML = '';
+                    for (let i = 0; i < count; i++) { const div = document.createElement('div'); div.classList.add('mb-2', 'flex', 'items-center', 'justify-center', 'gap-2'); div.innerHTML = ` <label class="text-right font-medium text-xs md:text-sm" for="player-name-${i}">P${i + 1}:</label> <input type="text" id="player-name-${i}" placeholder="Name" class="player-name-input border rounded p-1 w-24 text-xs md:text-sm"> <span class="inline-block w-4 h-4 rounded-full border border-gray-400" style="background-color: ${PLAYER_COLORS[i % PLAYER_COLORS.length]};"></span> <span class="text-sm md:text-lg">${PLAYER_TOKENS[i % PLAYER_TOKENS.length]}</span> `; playerNamesSetupDiv.appendChild(div); }
+                });
+                 numPlayersSelect.dispatchEvent(new Event('change'));
+            } else { console.error("numPlayersSelect not found."); }
+            if (startGameBtn) { startGameBtn.addEventListener('click', setupGame); } else { console.error("startGameBtn not found."); }
+            if (rollDiceBtn) { rollDiceBtn.addEventListener('click', handleRollDiceClick); } else { console.error("rollDiceBtn not found."); }
+            if (endTurnBtn) { endTurnBtn.addEventListener('click', endCurrentTurn); } else { console.error("endTurnBtn not found."); }
+            window.addEventListener('resize', () => { if(gameStarted && players.length > 0) { players.forEach(p => { if (!p.bankrupt) updatePlayerMarkerPosition(p); }); } });
+        }
+
+        // --- Initial Setup ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Assign DOM elements
+            gameContainer = document.querySelector('.game-container');
+            boardContainer = document.querySelector('.board-container');
+            boardElement = document.getElementById('game-board');
+            centerControls = document.querySelector('.center-controls'); // Changed from center-area
+            setupModal = document.getElementById('setup-modal');
+            startGameBtn = document.getElementById('start-game-btn');
+            numPlayersSelect = document.getElementById('num-players');
+            playerNamesSetupDiv = document.getElementById('player-names-setup');
+            playerInfoPanelsDiv = document.getElementById('player-info-panels');
+            logContainer = document.getElementById('log-container');
+            logScreen = document.getElementById('log-screen');
+            dice1Element = document.getElementById('dice1');
+            dice2Element = document.getElementById('dice2');
+            rollDiceBtn = document.getElementById('roll-dice-btn');
+            endTurnBtn = document.getElementById('end-turn-btn');
+            turnIndicator = document.getElementById('turn-indicator');
+            notificationModal = document.getElementById('notification-modal');
+            notificationMessage = document.getElementById('notification-message');
+            notificationButtons = document.getElementById('notification-buttons');
+            actionButtonsDiv = document.getElementById('action-buttons');
+
+            if (!boardElement || !centerControls || !setupModal || !startGameBtn || !numPlayersSelect || !playerInfoPanelsDiv || !logScreen) {
+                 console.error("Essential DOM elements missing. Cannot initialize.");
+                 alert("Failed to load game interface. Please refresh."); return;
+             }
+            // Draw initial board structure inside the board element
+            drawBoard();
+            setupEventListeners();
+        });
+
+    </script>
+</body>
+</html>
