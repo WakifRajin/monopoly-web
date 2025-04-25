@@ -2,7 +2,7 @@
 
 A modern, browser-based Monopoly game with a Bangladeshi twist — fully playable in the browser with animated movement, player turns, chance/community cards, and property ownership mechanics.
 
-![Bangladeshi Monopoly Screenshot](https://user-images.githubusercontent.com/YOUR-USERNAME/monopoly-preview.png)
+![Screenshot](Screenshot.png)
 
 ## 🌟 Features
 
