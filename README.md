@@ -1,4 +1,4 @@
-# 🇧🇩 Bangladeshi Monopoly
+# Bangladesh Themed Monopoly
 
 A modern, browser-based Monopoly game with a Bangladeshi twist — fully playable in the browser with animated movement, player turns, chance/community cards, and property ownership mechanics.
 
