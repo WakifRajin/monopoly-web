@@ -21,8 +21,8 @@ A modern, browser-based Monopoly game with a Bangladeshi twist — fully playabl
    git clone https://github.com/wakifrajin/bangladeshi-monopoly.git
    ```
 2. **Open the game**
-  ```
-  open monopoly.html
-  ```
+   ```
+   open monopoly.html
+   ```
 
 Alternatively, you can just download monopoly.html and open it in any compatible browser on your device.
