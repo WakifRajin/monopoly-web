@@ -197,7 +197,63 @@
     <script src="/js/utils/constants.js"></script>
     <script src="/js/utils/helpers.js"></script>
     <script src="/js/network/socketClient.js"></script>
-    <script src="/js/ui/lobby.js"></script>
     <script src="/js/ui/notifications.js"></script>
+    <script src="/js/ui/lobby.js"></script>
+
+    <!-- Explicit initialization (backup if auto-init fails) -->
+    <script>
+    (function() {
+        function initApp() {
+            // Wait for all classes to be defined
+            if (typeof SocketClient === 'undefined' || 
+                typeof LobbyUI === 'undefined' || 
+                typeof Notifications === 'undefined') {
+                console.log('Waiting for classes to load...');
+                setTimeout(initApp, 50);
+                return;
+            }
+
+            // Initialize in correct order
+            try {
+                // 1. Initialize socket client first
+                if (!window.socketClient) {
+                    window.socketClient = new SocketClient();
+                    window.socketClient.connect();
+                    console.log('✓ Socket client initialized');
+                }
+
+                // 2. Initialize notifications
+                if (!window.notifications) {
+                    window.notifications = new Notifications();
+                    console.log('✓ Notifications initialized');
+                }
+
+                // 3. Initialize lobby UI last (depends on socket)
+                if (!window.lobbyUI) {
+                    // Small delay to ensure socket connection starts
+                    setTimeout(() => {
+                        window.lobbyUI = new LobbyUI();
+                        console.log('✓ Lobby UI initialized');
+                        console.log('✓ Application ready');
+                        
+                        // Load public rooms initially
+                        setTimeout(() => {
+                            socketClient.getPublicRooms();
+                        }, 500);
+                    }, 100);
+                }
+            } catch (error) {
+                console.error('Initialization error:', error);
+            }
+        }
+
+        // Start initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    })();
+    </script>
 </body>
 </html>

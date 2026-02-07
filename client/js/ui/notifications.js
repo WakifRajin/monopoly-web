@@ -85,7 +85,16 @@ class Notifications {
     }
 }
 
-// Create global notifications instance
+// Auto-initialize when DOM is ready
 if (typeof window !== 'undefined') {
-    window.notifications = new Notifications();
+    const initNotifications = () => {
+        window.notifications = new Notifications();
+        console.log('Notifications initialized');
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initNotifications);
+    } else {
+        initNotifications();
+    }
 }

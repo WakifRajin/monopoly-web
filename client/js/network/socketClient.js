@@ -32,24 +32,31 @@ class SocketClient {
      */
     setupConnectionHandlers() {
         this.socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('✓ Connected to server');
+            console.log('  Socket ID:', this.socket.id);
+            console.log('  Transport:', this.socket.io.engine.transport.name);
             this.connected = true;
             this.emit('connection-changed', { state: CONSTANTS.CONNECTION_STATES.CONNECTED });
         });
 
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
+        this.socket.on('disconnect', (reason) => {
+            console.log('✗ Disconnected from server');
+            console.log('  Reason:', reason);
             this.connected = false;
             this.emit('connection-changed', { state: CONSTANTS.CONNECTION_STATES.DISCONNECTED });
         });
 
         this.socket.on('connect_error', (error) => {
-            console.error('Connection error:', error);
+            console.error('✗ Connection error:', error.message);
+            console.log('  Details:', {
+                type: error.type,
+                description: error.description
+            });
             this.emit('connection-changed', { state: CONSTANTS.CONNECTION_STATES.CONNECTING });
         });
 
         this.socket.on('error', (data) => {
-            console.error('Server error:', data.message);
+            console.error('✗ Server error:', data.message);
             this.emit('error', data);
         });
     }
@@ -313,7 +320,24 @@ class SocketClient {
     }
 }
 
-// Create global socket client instance
+// Export for use as module if needed
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = SocketClient;
+}
+
+// Auto-initialize when DOM is ready
 if (typeof window !== 'undefined') {
-    window.socketClient = new SocketClient();
+    // Create global instance
+    const initSocketClient = () => {
+        window.socketClient = new SocketClient();
+        window.socketClient.connect();
+        console.log('Socket client initialized');
+    };
+
+    // Initialize based on document state
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSocketClient);
+    } else {
+        initSocketClient();
+    }
 }

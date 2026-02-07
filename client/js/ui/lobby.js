@@ -356,13 +356,27 @@ class LobbyUI {
     }
 }
 
-// Initialize lobby UI when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.lobbyUI = new LobbyUI();
-    socketClient.connect();
-    
-    // Load public rooms initially
-    setTimeout(() => {
-        socketClient.getPublicRooms();
-    }, 500);
-});
+// Auto-initialize when DOM is ready
+if (typeof window !== 'undefined') {
+    const initLobby = () => {
+        // Ensure socketClient exists before initializing lobby
+        if (typeof socketClient !== 'undefined' && socketClient.connected !== undefined) {
+            window.lobbyUI = new LobbyUI();
+            console.log('Lobby UI initialized');
+            
+            // Load public rooms initially
+            setTimeout(() => {
+                socketClient.getPublicRooms();
+            }, 500);
+        } else {
+            console.error('Socket client not available. Retrying in 100ms...');
+            setTimeout(initLobby, 100);
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLobby);
+    } else {
+        initLobby();
+    }
+}
