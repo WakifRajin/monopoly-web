@@ -690,11 +690,9 @@ class SocketService {
                 
                 const room = this.roomController.getRoom(roomCode);
                 
-                // Early exit if room or game not found
+                // Early exit if room not found (game is already validated above)
                 if (!room) {
                     logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
-                } else if (!game) {
-                    logger.warn(`⚠ Game ${roomCode} not available for fallback reconnection`);
                 } else {
                     // Find disconnected players in the room
                     const disconnectedPlayers = room.players.filter(p => p.disconnected);
@@ -712,17 +710,25 @@ class SocketService {
                             // Only one disconnected player, safely reconnect them
                             const player = disconnectedPlayers[0];
                             
-                            // Update both room and game models atomically
-                            player.socketId = socket.id;
-                            player.disconnected = false;
-                            
-                            const gamePlayer = game.players.find(p => p.id === player.id);
-                            if (gamePlayer) {
-                                gamePlayer.socketId = socket.id;
-                                gamePlayer.disconnected = false;
+                            try {
+                                // Update both room and game models (best-effort atomic update)
+                                player.socketId = socket.id;
+                                player.disconnected = false;
+                                
+                                const gamePlayer = game.players.find(p => p.id === player.id);
+                                if (gamePlayer) {
+                                    gamePlayer.socketId = socket.id;
+                                    gamePlayer.disconnected = false;
+                                } else {
+                                    logger.warn(`⚠ Player ${player.id} found in room but not in game model - state inconsistency detected`);
+                                }
+                                
+                                logger.info(`✓ Fallback reconnection successful: player ${player.name} (${player.id}) reconnected with socket ${socket.id}`);
+                            } catch (error) {
+                                logger.error(`❌ Error during fallback reconnection: ${error.message}`);
+                                // Rollback room player update if game update failed
+                                player.disconnected = true;
                             }
-                            
-                            logger.info(`✓ Fallback reconnection successful: player ${player.name} (${player.id}) reconnected with socket ${socket.id}`);
                         } else {
                             // Multiple disconnected players - cannot safely reconnect without playerId
                             logger.warn(`⚠ Multiple disconnected players found (${disconnectedPlayers.length}), cannot safely reconnect without playerId`);
