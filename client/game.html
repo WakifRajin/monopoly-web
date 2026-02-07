@@ -457,6 +457,11 @@
     <script src="/js/ui/propertyCard.js"></script>
     <script src="/js/ui/trade.js"></script>
     <script src="/js/ui/auction.js"></script>
+    <script src="/js/ui/persistence.js"></script>
+    <!-- Load models for client-side use -->
+    <script src="/server/models/GameState.js"></script>
+    <script src="/server/models/PlayerStats.js"></script>
+    <script src="/server/models/Achievement.js"></script>
     <script>
         // Initialize the game when page loads
         document.addEventListener('DOMContentLoaded', () => {
@@ -480,6 +485,7 @@
             const board = new Board('game-board');
             const chat = new Chat('chat-screen', 'chat-input', 'send-chat-btn', socketClient);
             const propertyCard = new PropertyCard();
+            const persistence = new GamePersistence(socketClient);
             const game = new Game(board, socketClient, chat);
             
             // Initialize trade and auction (will be connected to game state)
@@ -495,6 +501,7 @@
             window.chatInstance = chat;
             window.animationsInstance = animations;
             window.propertyCardInstance = propertyCard;
+            window.persistenceInstance = persistence;
             
             // Initialize trade and auction after game state is received
             socketClient.on('game-started', (data) => {
