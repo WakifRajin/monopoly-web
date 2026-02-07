@@ -558,6 +558,90 @@
         });
     </script>
     
+    <!-- Game Initialization Script -->
+    <script>
+    (function() {
+        console.log('🎮 Game page initializing...');
+        
+        // Get room code and player ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room');
+        const playerId = urlParams.get('playerId') || localStorage.getItem('currentPlayerId');
+        
+        if (!roomCode) {
+            console.error('❌ No room code in URL');
+            alert('No room code provided. Returning to lobby.');
+            window.location.href = '/';
+            return;
+        }
+        
+        console.log('📍 Room:', roomCode);
+        console.log('👤 Player ID:', playerId || 'Not set');
+        
+        // Store player ID for later use
+        if (playerId) {
+            localStorage.setItem('currentPlayerId', playerId);
+        }
+        
+        // Initialize when DOM and scripts are ready
+        function initializeGame() {
+            // Check if socket client is ready
+            if (!window.socketClient || !window.socketClient.socket) {
+                console.log('⏳ Waiting for socketClient...');
+                setTimeout(initializeGame, 100);
+                return;
+            }
+            
+            console.log('✅ Socket client ready');
+            
+            // Track if we've already requested state
+            let stateRequested = false;
+            
+            // Listen for connection state changes
+            window.socketClient.on('connection-changed', (data) => {
+                console.log('🔌 Connection state:', data.state);
+                
+                if (data.state === 'connected' && !stateRequested) {
+                    console.log('✅ Socket connected successfully!');
+                    console.log('📡 Requesting game state for room:', roomCode);
+                    
+                    // REQUEST GAME STATE - THIS IS THE CRITICAL FIX
+                    window.socketClient.socket.emit('request-game-state', { 
+                        roomCode: roomCode,
+                        playerId: playerId
+                    });
+                    
+                    stateRequested = true;
+                    console.log('📤 Game state request sent');
+                }
+            });
+            
+            // If already connected, request immediately
+            if (window.socketClient.connected && !stateRequested) {
+                console.log('✅ Socket already connected!');
+                console.log('📡 Requesting game state immediately for room:', roomCode);
+                
+                window.socketClient.socket.emit('request-game-state', { 
+                    roomCode: roomCode,
+                    playerId: playerId
+                });
+                
+                stateRequested = true;
+                console.log('📤 Game state request sent');
+            }
+            
+            console.log('✅ Game initialization script complete');
+        }
+        
+        // Start initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeGame);
+        } else {
+            initializeGame();
+        }
+    })();
+    </script>
+    
     <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
