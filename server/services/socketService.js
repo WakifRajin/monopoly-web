@@ -42,6 +42,15 @@ class SocketService {
             socket.on('trade-offer', (data) => this.handleTradeOffer(socket, data));
             socket.on('trade-response', (data) => this.handleTradeResponse(socket, data));
 
+            // Auction events
+            socket.on('start-auction', (data) => this.handleStartAuction(socket, data));
+            socket.on('place-bid', (data) => this.handlePlaceBid(socket, data));
+            socket.on('end-auction', () => this.handleEndAuction(socket));
+
+            // Game persistence events
+            socket.on('save-game', () => this.handleSaveGame(socket));
+            socket.on('get-game-state', () => this.handleGetGameState(socket));
+
             // Chat events
             socket.on('chat-message', (data) => this.handleChatMessage(socket, data));
 
@@ -479,6 +488,133 @@ class SocketService {
             });
         } catch (error) {
             logger.error('Error responding to trade:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle starting auction
+     */
+    handleStartAuction(socket, data) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const auction = this.gameController.startAuction(result.room.code, data.propertyIndex);
+            const game = this.gameController.getGame(result.room.code);
+
+            this.io.to(result.room.code).emit('auction-started', {
+                auction,
+                property: game.board[data.propertyIndex],
+                gameState: game.toJSON()
+            });
+
+            logger.info(`Auction started in room ${result.room.code} for property ${data.propertyIndex}`);
+        } catch (error) {
+            logger.error('Error starting auction:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle placing bid
+     */
+    handlePlaceBid(socket, data) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const auction = this.gameController.placeBid(result.room.code, result.player.id, data.amount);
+            const game = this.gameController.getGame(result.room.code);
+
+            this.io.to(result.room.code).emit('bid-placed', {
+                auction,
+                playerId: result.player.id,
+                playerName: result.player.name,
+                amount: data.amount,
+                gameState: game.toJSON()
+            });
+
+            logger.info(`Player ${result.player.name} bid ৳${data.amount} in room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error placing bid:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle ending auction
+     */
+    handleEndAuction(socket) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const auctionResult = this.gameController.endAuction(result.room.code);
+            const game = this.gameController.getGame(result.room.code);
+
+            this.io.to(result.room.code).emit('auction-ended', {
+                result: auctionResult,
+                gameState: game.toJSON()
+            });
+
+            logger.info(`Auction ended in room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error ending auction:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle save game
+     */
+    handleSaveGame(socket) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const gameState = this.gameController.saveGame(result.room.code);
+
+            socket.emit('game-saved', {
+                success: true,
+                timestamp: Date.now(),
+                gameState: gameState
+            });
+
+            logger.info(`Game saved in room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error saving game:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle get game state
+     */
+    handleGetGameState(socket) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const gameState = this.gameController.getGameState(result.room.code);
+
+            socket.emit('game-state-retrieved', {
+                gameState: gameState
+            });
+
+            logger.info(`Game state retrieved for room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error getting game state:', error.message);
             socket.emit('error', { message: error.message });
         }
     }

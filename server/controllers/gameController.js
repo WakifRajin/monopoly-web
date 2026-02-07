@@ -4,6 +4,7 @@
  */
 
 const Game = require('../models/Game');
+const GameState = require('../models/GameState');
 const logger = require('../utils/logger');
 const {
     validatePropertyPurchase,
@@ -16,6 +17,41 @@ const {
 class GameController {
     constructor() {
         this.games = new Map(); // roomCode -> Game
+        this.autoSaveInterval = 60000; // Auto-save every 60 seconds
+        this.autoSaveTimer = null;
+        this.setupAutoSave();
+    }
+
+    /**
+     * Setup auto-save timer
+     */
+    setupAutoSave() {
+        // Clear existing timer if any
+        if (this.autoSaveTimer) {
+            clearInterval(this.autoSaveTimer);
+        }
+        
+        this.autoSaveTimer = setInterval(() => {
+            this.games.forEach((game, roomCode) => {
+                if (game.status === 'active') {
+                    try {
+                        this.saveGame(roomCode);
+                    } catch (error) {
+                        logger.error(`Auto-save failed for room ${roomCode}:`, error.message);
+                    }
+                }
+            });
+        }, this.autoSaveInterval);
+    }
+
+    /**
+     * Cleanup and stop auto-save timer
+     */
+    destroy() {
+        if (this.autoSaveTimer) {
+            clearInterval(this.autoSaveTimer);
+            this.autoSaveTimer = null;
+        }
     }
 
     /**
@@ -463,6 +499,129 @@ class GameController {
     }
 
     /**
+     * Start auction for a property
+     */
+    startAuction(roomCode, propertyIndex) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        const property = game.board[propertyIndex];
+        if (!property || property.owner) {
+            throw new Error('Property cannot be auctioned');
+        }
+
+        game.auction = {
+            propertyIndex,
+            currentBid: 0,
+            currentBidder: null,
+            bids: [],
+            startedAt: Date.now(),
+            endTime: Date.now() + 30000, // 30 seconds
+            isActive: true
+        };
+
+        game.addHistory({
+            type: 'auction_started',
+            propertyIndex,
+            property: property.name
+        });
+
+        return game.auction;
+    }
+
+    /**
+     * Place bid in auction
+     */
+    placeBid(roomCode, playerId, amount) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (!game.auction || !game.auction.isActive) {
+            throw new Error('No active auction');
+        }
+
+        const player = game.players.find(p => p.id === playerId);
+        if (!player) {
+            throw new Error('Player not found');
+        }
+
+        // Validate bid
+        if (amount <= game.auction.currentBid) {
+            throw new Error('Bid must be higher than current bid');
+        }
+
+        if (amount > player.money) {
+            throw new Error('Insufficient funds');
+        }
+
+        // Place bid
+        game.auction.currentBid = amount;
+        game.auction.currentBidder = playerId;
+        game.auction.bids.push({
+            playerId,
+            amount,
+            timestamp: Date.now()
+        });
+
+        // Reset timer
+        game.auction.endTime = Date.now() + 10000; // 10 more seconds
+
+        game.addHistory({
+            type: 'auction_bid',
+            playerId,
+            amount
+        });
+
+        return game.auction;
+    }
+
+    /**
+     * End auction and award property
+     */
+    endAuction(roomCode) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (!game.auction || !game.auction.isActive) {
+            throw new Error('No active auction');
+        }
+
+        game.auction.isActive = false;
+        const auction = game.auction;
+
+        // Award property to winner
+        if (auction.currentBidder && auction.currentBid > 0) {
+            const winner = game.players.find(p => p.id === auction.currentBidder);
+            const property = game.board[auction.propertyIndex];
+
+            if (winner && property) {
+                winner.removeMoney(auction.currentBid);
+                property.owner = winner.id;
+                winner.addProperty(auction.propertyIndex);
+
+                game.addHistory({
+                    type: 'auction_won',
+                    playerId: winner.id,
+                    propertyIndex: auction.propertyIndex,
+                    amount: auction.currentBid
+                });
+
+                logger.info(`Player ${winner.name} won auction for ${property.name} with bid of ৳${auction.currentBid}`);
+            }
+        }
+
+        const result = { ...auction };
+        game.auction = null;
+        return result;
+    }
+
+    /**
      * Add chat message
      */
     addChatMessage(roomCode, playerId, message) {
@@ -473,6 +632,72 @@ class GameController {
 
         game.addChatMessage(playerId, message);
         return game.chatHistory[game.chatHistory.length - 1];
+    }
+
+    /**
+     * Save game state
+     */
+    saveGame(roomCode) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        try {
+            const gameState = GameState.serialize(game);
+            
+            // Validate before saving
+            const validation = GameState.validate(gameState);
+            if (!validation.valid) {
+                throw new Error(`Invalid game state: ${validation.errors.join(', ')}`);
+            }
+
+            // In a real application, you would save to a database here
+            // For now, we'll just return the serialized state
+            logger.info(`Game state saved for room ${roomCode}`);
+            
+            return gameState;
+        } catch (error) {
+            logger.error(`Error saving game state: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Load game state
+     */
+    loadGame(gameState) {
+        try {
+            // Validate game state
+            const validation = GameState.validate(gameState);
+            if (!validation.valid) {
+                throw new Error(`Invalid game state: ${validation.errors.join(', ')}`);
+            }
+
+            // Create a new Game instance from the saved state
+            // This would require updating the Game model to support initialization from state
+            // For now, we'll return the deserialized state
+            const deserialized = GameState.deserialize(gameState);
+            
+            logger.info(`Game state loaded for room ${deserialized.roomCode}`);
+            
+            return deserialized;
+        } catch (error) {
+            logger.error(`Error loading game state: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get game state for client
+     */
+    getGameState(roomCode) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        return GameState.serialize(game);
     }
 }
 

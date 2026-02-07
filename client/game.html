@@ -450,9 +450,18 @@
     <script src="/js/utils/constants.js"></script>
     <script src="/js/utils/helpers.js"></script>
     <script src="/js/network/socketClient.js"></script>
+    <script src="/js/core/animations.js"></script>
     <script src="/js/core/board.js"></script>
     <script src="/js/core/game.js"></script>
     <script src="/js/ui/chat.js"></script>
+    <script src="/js/ui/propertyCard.js"></script>
+    <script src="/js/ui/trade.js"></script>
+    <script src="/js/ui/auction.js"></script>
+    <script src="/js/ui/persistence.js"></script>
+    <!-- Load models for client-side use -->
+    <script src="/server/models/GameState.js"></script>
+    <script src="/server/models/PlayerStats.js"></script>
+    <script src="/server/models/Achievement.js"></script>
     <script>
         // Initialize the game when page loads
         document.addEventListener('DOMContentLoaded', () => {
@@ -461,7 +470,7 @@
             const roomCode = urlParams.get('room');
 
             if (!roomCode) {
-                notifications.error('No room code provided. Redirecting to lobby...');
+                alert('No room code provided. Redirecting to lobby...');
                 setTimeout(() => {
                     window.location.href = '/index.html';
                 }, 2000);
@@ -472,17 +481,41 @@
             socketClient.connect();
 
             // Initialize game components
+            const animations = new Animations();
             const board = new Board('game-board');
             const chat = new Chat('chat-screen', 'chat-input', 'send-chat-btn', socketClient);
+            const propertyCard = new PropertyCard();
+            const persistence = new GamePersistence(socketClient);
             const game = new Game(board, socketClient, chat);
+            
+            // Initialize trade and auction (will be connected to game state)
+            let trade = null;
+            let auction = null;
 
             // Store room code in game
             game.roomCode = roomCode;
 
-            // Make game accessible globally for debugging
+            // Make components accessible globally for debugging
             window.gameInstance = game;
             window.boardInstance = board;
             window.chatInstance = chat;
+            window.animationsInstance = animations;
+            window.propertyCardInstance = propertyCard;
+            window.persistenceInstance = persistence;
+            
+            // Initialize trade and auction after game state is received
+            socketClient.on('game-started', (data) => {
+                trade = new Trade(socketClient, data.game);
+                auction = new Auction(socketClient, data.game);
+                window.tradeInstance = trade;
+                window.auctionInstance = auction;
+            });
+            
+            // Update trade and auction game state when it changes
+            socketClient.on('game-state-updated', (data) => {
+                if (trade) trade.updateGameState(data.game);
+                if (auction) auction.updateGameState(data.game);
+            });
 
             console.log('Game initialized for room:', roomCode);
         });
