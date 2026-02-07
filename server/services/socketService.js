@@ -191,7 +191,7 @@ class SocketService {
 
             const currentPlayer = game.getCurrentPlayer();
             // Fix: Compare player IDs instead of socketIds to avoid stale socketId issues
-            // result.player is the player found by the current socket.id
+            // result.player is the player object returned by getPlayerBySocketId() above (line 182)
             if (currentPlayer.id !== result.player.id) {
                 throw new Error('Not your turn');
             }
@@ -679,7 +679,7 @@ class SocketService {
                     logger.warn(`⚠ Player ${playerId} not found in game ${roomCode} player list`);
                 }
 
-                // If playerId didn't match, log the error
+                // If player was not found in room or game, log the error
                 // We can't reliably match players without a valid playerId
                 if (!playerUpdated) {
                     logger.error(`❌ Could not update player socketId - playerId ${playerId} not found in room or game`);
