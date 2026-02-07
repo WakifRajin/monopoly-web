@@ -226,17 +226,17 @@ self.addEventListener('notificationclick', (event) => {
   }
 });
 
-// Helper function to sync game state (future implementation)
+// Helper function to sync game state (placeholder for future implementation)
 async function syncGameState() {
   try {
-    const cache = await caches.open(CACHE_NAME);
-    const response = await cache.match('/api/sync-game-state');
+    // In a real implementation, this would fetch from the server
+    // For now, this is just a placeholder
+    console.log('[ServiceWorker] Sync game state (not implemented)');
     
-    if (response) {
-      const data = await response.json();
-      console.log('[ServiceWorker] Syncing game state:', data);
-      // Implement sync logic here
-    }
+    // Future implementation could:
+    // 1. Check if there's pending game state in IndexedDB
+    // 2. Send it to the server via fetch
+    // 3. Handle the response
   } catch (error) {
     console.error('[ServiceWorker] Sync failed:', error);
   }

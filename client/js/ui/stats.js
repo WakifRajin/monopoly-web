@@ -18,11 +18,20 @@ class StatsUI {
         
         // Load player stats from localStorage
         const playerName = localStorage.getItem('playerName') || 'Player';
+        
+        // Check if PlayerStats is available
+        if (typeof PlayerStats === 'undefined') {
+            console.warn('PlayerStats not loaded, stats tracking disabled');
+            return;
+        }
+        
         this.playerStats = new PlayerStats(playerName);
         
-        // Initialize achievements module
+        // Initialize achievements module if available
         if (typeof Achievements !== 'undefined') {
             this.achievements = Achievements;
+        } else {
+            console.warn('Achievements not loaded, achievement tracking disabled');
         }
         
         this.isInitialized = true;

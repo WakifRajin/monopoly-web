@@ -360,7 +360,7 @@ class GamePersistence {
         this.socket.socket.emit('load-game', { gameState: gameState });
         
         // Listen for load response
-        this.socket.socket.once('game-loaded', (data) => {
+        const loadSuccessHandler = (data) => {
             if (data.success) {
                 this.showStatus('load', 'Game loaded successfully! Updating game state...', 'success');
                 this.hideModal();
@@ -372,18 +372,24 @@ class GamePersistence {
             } else {
                 this.showStatus('load', 'Failed to load game state', 'error');
             }
-        });
+        };
+        this.socket.socket.once('game-loaded', loadSuccessHandler);
         
-        // Handle errors
+        // Handle errors - check if error is related to loading
         const errorHandler = (error) => {
-            this.showStatus('load', `Error: ${error.message}`, 'error');
+            // Only show error if it seems related to loading
+            if (error.message && error.message.toLowerCase().includes('load')) {
+                this.showStatus('load', `Error: ${error.message}`, 'error');
+                this.socket.socket.off('game-loaded', loadSuccessHandler);
+            }
         };
         this.socket.socket.once('error', errorHandler);
         
-        // Clean up error handler after 5 seconds
+        // Clean up listeners after 10 seconds
         setTimeout(() => {
+            this.socket.socket.off('game-loaded', loadSuccessHandler);
             this.socket.socket.off('error', errorHandler);
-        }, 5000);
+        }, 10000);
     }
 
     /**

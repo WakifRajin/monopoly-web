@@ -345,7 +345,7 @@
     }
 
     .gradient {
-        background: solid !important;
+        background-image: none !important;
     }
 }
 
