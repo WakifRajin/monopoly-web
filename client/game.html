@@ -518,6 +518,10 @@
             window.propertyCardInstance = propertyCard;
             window.persistenceInstance = persistence;
             
+            // Configuration constants
+            const SOCKET_POLL_INTERVAL_MS = 50;
+            const SOCKET_INITIALIZATION_TIMEOUT = 10000;
+            
             // Deduplication flag to prevent multiple request-game-state calls
             let requestGameStateSent = false;
             
@@ -567,14 +571,14 @@
                         console.log('Socket initialized via polling');
                         setupSocketBackup(socketClient.socket);
                     }
-                }, 50);
-                // Safety timeout - stop polling after 10 seconds
+                }, SOCKET_POLL_INTERVAL_MS);
+                // Safety timeout - stop polling after timeout
                 setTimeout(() => {
                     clearInterval(waitForSocket);
                     if (!requestGameStateSent) {
-                        console.error('Failed to send request-game-state after 10 seconds');
+                        console.error(`Failed to send request-game-state after ${SOCKET_INITIALIZATION_TIMEOUT}ms`);
                     }
-                }, 10000);
+                }, SOCKET_INITIALIZATION_TIMEOUT);
             }
 
             // Handle game state response

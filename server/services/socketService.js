@@ -103,7 +103,7 @@ class SocketService {
             const connectedSocketIds = roomSockets ? Array.from(roomSockets) : [];
             
             // Find a player whose socketId is stale (not in the connected sockets list)
-            const stalePlayer = room.players.find(p => !connectedSocketIds.includes(p.socketId) && p.socketId !== socket.id);
+            const stalePlayer = room.players.find(p => !connectedSocketIds.includes(p.socketId));
             
             if (stalePlayer) {
                 logger.info(`[FIND-PLAYER] Found stale player ${stalePlayer.name} (${stalePlayer.id}) with old socketId ${stalePlayer.socketId}`);
@@ -890,11 +890,15 @@ class SocketService {
                     
                     // IMPROVED FALLBACK LOGIC: Instead of only looking for disconnected players,
                     // look for players whose socketId doesn't match any currently connected socket
-                    const stalePlayers = room.players.filter(p => {
-                        const isStale = !connectedSocketIds.includes(p.socketId);
-                        logger.info(`[REQUEST-GAME-STATE] Player ${p.name} (${p.id}): socketId=${p.socketId}, disconnected=${p.disconnected}, isStale=${isStale}`);
-                        return isStale;
-                    });
+                    const stalePlayers = room.players.filter(p => !connectedSocketIds.includes(p.socketId));
+                    
+                    // Log details for debugging
+                    if (stalePlayers.length > 0) {
+                        logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId:`);
+                        stalePlayers.forEach(p => {
+                            logger.info(`  - ${p.name} (${p.id}): socketId=${p.socketId}, disconnected=${p.disconnected}`);
+                        });
+                    }
                     
                     logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId in room ${roomCode}`);
                     
