@@ -71,9 +71,10 @@ class Game {
         this.setupEventListeners();
         this.setupSocketListeners();
         
-        // Get room code from URL
+        // Get room code and player ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         this.roomCode = urlParams.get('room');
+        this.currentPlayerId = urlParams.get('playerId') || localStorage.getItem('currentPlayerId');
 
         if (this.roomCode) {
             this.log('Connecting to room...');
@@ -137,6 +138,14 @@ class Game {
         this.socket.on('game-started', (data) => {
             this.gameState = data.game;
             this.log('Game started!');
+            this.updateGameState(data.game);
+        });
+
+        // Handle game state response (when requesting state on page load)
+        this.socket.on('game-state', (data) => {
+            console.log('Game state received, initializing...');
+            this.gameState = data.game;
+            this.log('Game state loaded');
             this.updateGameState(data.game);
         });
 

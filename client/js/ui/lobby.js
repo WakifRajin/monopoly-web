@@ -242,10 +242,20 @@ class LobbyUI {
 
     handleGameStarted(data) {
         notifications.success('Game starting!');
-        // Redirect to game page with room code
+        
+        // Store player ID for game page
+        if (this.currentPlayerId) {
+            localStorage.setItem('currentPlayerId', this.currentPlayerId);
+        }
+        if (this.currentRoom?.code) {
+            localStorage.setItem('currentRoomCode', this.currentRoom.code);
+        }
+        
+        // Redirect to game page with room code and player ID
         setTimeout(() => {
             const roomCode = this.currentRoom?.code || data.game?.roomCode || '';
-            window.location.href = `/game.html?room=${roomCode}`;
+            const playerId = this.currentPlayerId || '';
+            window.location.href = `/game.html?room=${roomCode}&playerId=${playerId}`;
         }, 1000);
     }
 
