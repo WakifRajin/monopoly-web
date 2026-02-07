@@ -10,8 +10,8 @@
     <link rel="manifest" href="/manifest.json">
     <title>Monopoly Game - Bangladeshi Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/mobile.css">
     <style>
         /* Custom CSS for the game board and elements */
@@ -513,12 +513,39 @@
             window.propertyCardInstance = propertyCard;
             window.persistenceInstance = persistence;
             
-            // Initialize trade and auction after game state is received
+            // Request game state when socket connects
+            socketClient.on('connection-changed', (data) => {
+                if (data.state === CONSTANTS.CONNECTION_STATES.CONNECTED) {
+                    console.log('Socket connected, requesting game state for room:', roomCode);
+                    // Request current game state from server
+                    socketClient.socket.emit('request-game-state', { roomCode });
+                }
+            });
+
+            // Handle game state response
+            socketClient.on('game-state', (data) => {
+                console.log('✓ Received game state from server:', data);
+                
+                // Let the game instance handle the state update
+                // (The game.js setupSocketListeners also has a handler for this event)
+                
+                // Initialize trade and auction if not already done
+                if (!trade && !auction && data.game) {
+                    trade = new Trade(socketClient, data.game);
+                    auction = new Auction(socketClient, data.game);
+                    window.tradeInstance = trade;
+                    window.auctionInstance = auction;
+                }
+            });
+            
+            // Initialize trade and auction after game state is received (backwards compatibility)
             socketClient.on('game-started', (data) => {
-                trade = new Trade(socketClient, data.game);
-                auction = new Auction(socketClient, data.game);
-                window.tradeInstance = trade;
-                window.auctionInstance = auction;
+                if (!trade) {
+                    trade = new Trade(socketClient, data.game);
+                    auction = new Auction(socketClient, data.game);
+                    window.tradeInstance = trade;
+                    window.auctionInstance = auction;
+                }
             });
             
             // Update trade and auction game state when it changes

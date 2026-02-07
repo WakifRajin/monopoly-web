@@ -50,6 +50,7 @@ class SocketService {
             // Game persistence events
             socket.on('save-game', () => this.handleSaveGame(socket));
             socket.on('get-game-state', () => this.handleGetGameState(socket));
+            socket.on('request-game-state', (data) => this.handleRequestGameState(socket, data));
             socket.on('load-game', (data) => this.handleLoadGame(socket, data));
 
             // Chat events
@@ -616,6 +617,36 @@ class SocketService {
             logger.info(`Game state retrieved for room ${result.room.code}`);
         } catch (error) {
             logger.error('Error getting game state:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle request game state (when joining game page)
+     */
+    handleRequestGameState(socket, data) {
+        try {
+            const { roomCode } = data;
+            
+            if (!roomCode) {
+                throw new Error('Room code is required');
+            }
+
+            // Get the game
+            const game = this.gameController.getGame(roomCode);
+            
+            if (!game) {
+                throw new Error('Game not found');
+            }
+
+            // Send current game state to requesting client
+            socket.emit('game-state', {
+                game: game.toJSON()
+            });
+
+            logger.info(`Sent game state to socket ${socket.id} for room ${roomCode}`);
+        } catch (error) {
+            logger.error('Error requesting game state:', error.message);
             socket.emit('error', { message: error.message });
         }
     }
