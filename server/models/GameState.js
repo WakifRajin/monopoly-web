@@ -1,6 +1,10 @@
 /**
  * Game State Model
  * Handles game state serialization and persistence
+ * 
+ * NOTE: This file is designed to work in BOTH Node.js (server) and browser (client) environments.
+ * Methods that use browser APIs (localStorage, Blob, etc.) are for CLIENT-SIDE use only.
+ * The core serialization/deserialization methods work in both environments.
  */
 
 class GameState {
@@ -118,8 +122,14 @@ class GameState {
 
     /**
      * Save game state to localStorage
+     * CLIENT-SIDE ONLY - Do not call from server
      */
     static saveToLocalStorage(gameState, roomCode) {
+        if (typeof localStorage === 'undefined') {
+            console.warn('localStorage not available (server environment)');
+            return false;
+        }
+        
         try {
             const serialized = JSON.stringify(gameState);
             const key = `monopoly_save_${roomCode}`;
@@ -134,8 +144,14 @@ class GameState {
 
     /**
      * Load game state from localStorage
+     * CLIENT-SIDE ONLY - Do not call from server
      */
     static loadFromLocalStorage(roomCode) {
+        if (typeof localStorage === 'undefined') {
+            console.warn('localStorage not available (server environment)');
+            return null;
+        }
+        
         try {
             const key = `monopoly_save_${roomCode}`;
             const serialized = localStorage.getItem(key);
@@ -154,35 +170,45 @@ class GameState {
 
     /**
      * List all saved games
+     * CLIENT-SIDE ONLY - Do not call from server
      */
     static listSavedGames() {
+        if (typeof localStorage === 'undefined') {
+            console.warn('localStorage not available (server environment)');
+            return [];
+        }
+        
         const savedGames = [];
         
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            
-            if (key && key.startsWith('monopoly_save_')) {
-                try {
-                    const roomCode = key.replace('monopoly_save_', '');
-                    const timestampKey = `${key}_timestamp`;
-                    const timestamp = parseInt(localStorage.getItem(timestampKey) || '0');
-                    
-                    const serialized = localStorage.getItem(key);
-                    if (serialized) {
-                        const gameState = JSON.parse(serialized);
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                
+                if (key && key.startsWith('monopoly_save_')) {
+                    try {
+                        const roomCode = key.replace('monopoly_save_', '');
+                        const timestampKey = `${key}_timestamp`;
+                        const timestamp = parseInt(localStorage.getItem(timestampKey) || '0');
                         
-                        savedGames.push({
-                            roomCode: roomCode,
-                            timestamp: timestamp,
-                            turnNumber: gameState.turnNumber,
-                            playerCount: gameState.players.length,
-                            status: gameState.status
-                        });
+                        const serialized = localStorage.getItem(key);
+                        if (serialized) {
+                            const gameState = JSON.parse(serialized);
+                            
+                            savedGames.push({
+                                roomCode: roomCode,
+                                timestamp: timestamp,
+                                turnNumber: gameState.turnNumber,
+                                playerCount: gameState.players.length,
+                                status: gameState.status
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error parsing saved game:', error);
                     }
-                } catch (error) {
-                    console.error('Error parsing saved game:', error);
                 }
             }
+        } catch (error) {
+            console.error('Error listing saved games:', error);
         }
         
         // Sort by timestamp (newest first)
@@ -191,8 +217,14 @@ class GameState {
 
     /**
      * Delete saved game
+     * CLIENT-SIDE ONLY - Do not call from server
      */
     static deleteSavedGame(roomCode) {
+        if (typeof localStorage === 'undefined') {
+            console.warn('localStorage not available (server environment)');
+            return false;
+        }
+        
         try {
             const key = `monopoly_save_${roomCode}`;
             localStorage.removeItem(key);
@@ -206,8 +238,14 @@ class GameState {
 
     /**
      * Export game state as JSON file
+     * CLIENT-SIDE ONLY (uses browser APIs) - Do not call from server
      */
     static exportToFile(gameState, filename) {
+        if (typeof Blob === 'undefined' || typeof document === 'undefined') {
+            console.warn('File export not available (server environment)');
+            return false;
+        }
+        
         try {
             const json = JSON.stringify(gameState, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
@@ -228,8 +266,15 @@ class GameState {
 
     /**
      * Import game state from JSON file
+     * CLIENT-SIDE ONLY (uses browser APIs) - Do not call from server
      */
     static importFromFile(file, callback) {
+        if (typeof FileReader === 'undefined') {
+            console.warn('File import not available (server environment)');
+            callback(new Error('FileReader not available'), null);
+            return;
+        }
+        
         const reader = new FileReader();
         
         reader.onload = (e) => {

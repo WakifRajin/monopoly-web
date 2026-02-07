@@ -18,6 +18,7 @@ class GameController {
     constructor() {
         this.games = new Map(); // roomCode -> Game
         this.autoSaveInterval = 60000; // Auto-save every 60 seconds
+        this.autoSaveTimer = null;
         this.setupAutoSave();
     }
 
@@ -25,13 +26,32 @@ class GameController {
      * Setup auto-save timer
      */
     setupAutoSave() {
-        setInterval(() => {
+        // Clear existing timer if any
+        if (this.autoSaveTimer) {
+            clearInterval(this.autoSaveTimer);
+        }
+        
+        this.autoSaveTimer = setInterval(() => {
             this.games.forEach((game, roomCode) => {
                 if (game.status === 'active') {
-                    this.saveGame(roomCode);
+                    try {
+                        this.saveGame(roomCode);
+                    } catch (error) {
+                        logger.error(`Auto-save failed for room ${roomCode}:`, error.message);
+                    }
                 }
             });
         }, this.autoSaveInterval);
+    }
+
+    /**
+     * Cleanup and stop auto-save timer
+     */
+    destroy() {
+        if (this.autoSaveTimer) {
+            clearInterval(this.autoSaveTimer);
+            this.autoSaveTimer = null;
+        }
     }
 
     /**

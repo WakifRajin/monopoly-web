@@ -302,7 +302,7 @@ class Achievement {
             silver: '#C0C0C0',
             gold: '#FFD700'
         };
-        return colors[tier] || '#gray';
+        return colors[tier] || '#808080'; // Default to gray hex color
     }
 
     /**
