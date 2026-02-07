@@ -685,7 +685,56 @@ class SocketService {
                     logger.error(`❌ Could not update player socketId - playerId ${playerId} not found in room or game`);
                 }
             } else {
-                logger.warn(`⚠ No playerId provided in request-game-state for room ${roomCode}`);
+                // Fallback: No playerId provided, try to find a disconnected player to reconnect
+                logger.warn(`⚠ No playerId provided in request-game-state for room ${roomCode}, attempting fallback reconnection`);
+                
+                const room = this.roomController.getRoom(roomCode);
+                
+                // Early exit if room not found (game is already validated above)
+                if (!room) {
+                    logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
+                } else {
+                    // Find disconnected players in the room
+                    const disconnectedPlayers = room.players.filter(p => p.disconnected);
+                    logger.info(`Found ${disconnectedPlayers.length} disconnected player(s) in room ${roomCode}`);
+                    
+                    if (disconnectedPlayers.length === 0) {
+                        logger.info(`No disconnected players found in room ${roomCode}`);
+                    } else {
+                        // Check if this socket ID is already assigned
+                        const existingPlayer = room.getPlayerBySocketId(socket.id);
+                        
+                        if (existingPlayer) {
+                            logger.info(`Socket ${socket.id} already assigned to player ${existingPlayer.name} (${existingPlayer.id})`);
+                        } else if (disconnectedPlayers.length === 1) {
+                            // Only one disconnected player, safely reconnect them
+                            const player = disconnectedPlayers[0];
+                            
+                            try {
+                                // Update both room and game models (best-effort atomic update)
+                                player.socketId = socket.id;
+                                player.disconnected = false;
+                                
+                                const gamePlayer = game.players.find(p => p.id === player.id);
+                                if (gamePlayer) {
+                                    gamePlayer.socketId = socket.id;
+                                    gamePlayer.disconnected = false;
+                                } else {
+                                    logger.warn(`⚠ Player ${player.id} found in room but not in game model - state inconsistency detected`);
+                                }
+                                
+                                logger.info(`✓ Fallback reconnection successful: player ${player.name} (${player.id}) reconnected with socket ${socket.id}`);
+                            } catch (error) {
+                                logger.error(`❌ Error during fallback reconnection: ${error.message}`);
+                                // Rollback room player update if game update failed
+                                player.disconnected = true;
+                            }
+                        } else {
+                            // Multiple disconnected players - cannot safely reconnect without playerId
+                            logger.warn(`⚠ Multiple disconnected players found (${disconnectedPlayers.length}), cannot safely reconnect without playerId`);
+                        }
+                    }
+                }
             }
 
             // Send current game state to requesting client
