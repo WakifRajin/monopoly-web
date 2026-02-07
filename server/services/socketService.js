@@ -47,6 +47,10 @@ class SocketService {
             socket.on('place-bid', (data) => this.handlePlaceBid(socket, data));
             socket.on('end-auction', () => this.handleEndAuction(socket));
 
+            // Game persistence events
+            socket.on('save-game', () => this.handleSaveGame(socket));
+            socket.on('get-game-state', () => this.handleGetGameState(socket));
+
             // Chat events
             socket.on('chat-message', (data) => this.handleChatMessage(socket, data));
 
@@ -563,6 +567,54 @@ class SocketService {
             logger.info(`Auction ended in room ${result.room.code}`);
         } catch (error) {
             logger.error('Error ending auction:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle save game
+     */
+    handleSaveGame(socket) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const gameState = this.gameController.saveGame(result.room.code);
+
+            socket.emit('game-saved', {
+                success: true,
+                timestamp: Date.now(),
+                gameState: gameState
+            });
+
+            logger.info(`Game saved in room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error saving game:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle get game state
+     */
+    handleGetGameState(socket) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            const gameState = this.gameController.getGameState(result.room.code);
+
+            socket.emit('game-state-retrieved', {
+                gameState: gameState
+            });
+
+            logger.info(`Game state retrieved for room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error getting game state:', error.message);
             socket.emit('error', { message: error.message });
         }
     }

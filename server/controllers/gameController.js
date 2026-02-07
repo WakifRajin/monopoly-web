@@ -4,6 +4,7 @@
  */
 
 const Game = require('../models/Game');
+const GameState = require('../models/GameState');
 const logger = require('../utils/logger');
 const {
     validatePropertyPurchase,
@@ -16,6 +17,21 @@ const {
 class GameController {
     constructor() {
         this.games = new Map(); // roomCode -> Game
+        this.autoSaveInterval = 60000; // Auto-save every 60 seconds
+        this.setupAutoSave();
+    }
+
+    /**
+     * Setup auto-save timer
+     */
+    setupAutoSave() {
+        setInterval(() => {
+            this.games.forEach((game, roomCode) => {
+                if (game.status === 'active') {
+                    this.saveGame(roomCode);
+                }
+            });
+        }, this.autoSaveInterval);
     }
 
     /**
@@ -596,6 +612,72 @@ class GameController {
 
         game.addChatMessage(playerId, message);
         return game.chatHistory[game.chatHistory.length - 1];
+    }
+
+    /**
+     * Save game state
+     */
+    saveGame(roomCode) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        try {
+            const gameState = GameState.serialize(game);
+            
+            // Validate before saving
+            const validation = GameState.validate(gameState);
+            if (!validation.valid) {
+                throw new Error(`Invalid game state: ${validation.errors.join(', ')}`);
+            }
+
+            // In a real application, you would save to a database here
+            // For now, we'll just return the serialized state
+            logger.info(`Game state saved for room ${roomCode}`);
+            
+            return gameState;
+        } catch (error) {
+            logger.error(`Error saving game state: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Load game state
+     */
+    loadGame(gameState) {
+        try {
+            // Validate game state
+            const validation = GameState.validate(gameState);
+            if (!validation.valid) {
+                throw new Error(`Invalid game state: ${validation.errors.join(', ')}`);
+            }
+
+            // Create a new Game instance from the saved state
+            // This would require updating the Game model to support initialization from state
+            // For now, we'll return the deserialized state
+            const deserialized = GameState.deserialize(gameState);
+            
+            logger.info(`Game state loaded for room ${deserialized.roomCode}`);
+            
+            return deserialized;
+        } catch (error) {
+            logger.error(`Error loading game state: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get game state for client
+     */
+    getGameState(roomCode) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        return GameState.serialize(game);
     }
 }
 
