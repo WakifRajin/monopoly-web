@@ -359,8 +359,8 @@ class LobbyUI {
 // Auto-initialize when DOM is ready
 if (typeof window !== 'undefined') {
     const initLobby = () => {
-        // Ensure socketClient exists before initializing lobby
-        if (typeof socketClient !== 'undefined' && socketClient.connected !== undefined) {
+        // Ensure socketClient exists and is properly initialized before creating lobby
+        if (typeof socketClient !== 'undefined' && socketClient.socket !== undefined) {
             window.lobbyUI = new LobbyUI();
             console.log('Lobby UI initialized');
             
@@ -369,7 +369,7 @@ if (typeof window !== 'undefined') {
                 socketClient.getPublicRooms();
             }, 500);
         } else {
-            console.error('Socket client not available. Retrying in 100ms...');
+            console.log('Waiting for socket client... retrying in 100ms');
             setTimeout(initLobby, 100);
         }
     };

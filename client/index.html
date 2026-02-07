@@ -265,33 +265,35 @@
                 return;
             }
 
-            // Initialize in correct order
+            // Guard: Only initialize if not already initialized by auto-init
             try {
-                // 1. Initialize socket client first
+                // 1. Initialize socket client first (only if not already initialized)
                 if (!window.socketClient) {
                     window.socketClient = new SocketClient();
                     window.socketClient.connect();
-                    console.log('✓ Socket client initialized');
+                    console.log('✓ Socket client initialized (backup)');
                 }
 
-                // 2. Initialize notifications
+                // 2. Initialize notifications (only if not already initialized)
                 if (!window.notifications) {
                     window.notifications = new Notifications();
-                    console.log('✓ Notifications initialized');
+                    console.log('✓ Notifications initialized (backup)');
                 }
 
-                // 3. Initialize lobby UI last (depends on socket)
+                // 3. Initialize lobby UI last (only if not already initialized)
                 if (!window.lobbyUI) {
                     // Small delay to ensure socket connection starts
                     setTimeout(() => {
-                        window.lobbyUI = new LobbyUI();
-                        console.log('✓ Lobby UI initialized');
-                        console.log('✓ Application ready');
-                        
-                        // Load public rooms initially
-                        setTimeout(() => {
-                            socketClient.getPublicRooms();
-                        }, 500);
+                        if (!window.lobbyUI) {
+                            window.lobbyUI = new LobbyUI();
+                            console.log('✓ Lobby UI initialized (backup)');
+                            console.log('✓ Application ready');
+                            
+                            // Load public rooms initially
+                            setTimeout(() => {
+                                socketClient.getPublicRooms();
+                            }, 500);
+                        }
                     }, 100);
                 }
             } catch (error) {
