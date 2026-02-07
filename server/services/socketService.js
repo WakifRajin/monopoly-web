@@ -626,7 +626,7 @@ class SocketService {
      */
     handleRequestGameState(socket, data) {
         try {
-            const { roomCode } = data;
+            const { roomCode, playerId } = data;
             
             if (!roomCode) {
                 throw new Error('Room code is required');
@@ -637,6 +637,24 @@ class SocketService {
             
             if (!game) {
                 throw new Error('Game not found');
+            }
+
+            // Join the socket to the room so it receives broadcasts
+            socket.join(roomCode);
+            logger.info(`Socket ${socket.id} joined room ${roomCode}`);
+
+            // Handle player reconnection if playerId is provided
+            if (playerId) {
+                const room = this.roomController.getRoom(roomCode);
+                if (room) {
+                    const player = room.getPlayer(playerId);
+                    if (player) {
+                        // Update player's socket ID and mark as reconnected
+                        player.socketId = socket.id;
+                        player.disconnected = false;
+                        logger.info(`Player ${player.name} (${playerId}) reconnected with socket ${socket.id}`);
+                    }
+                }
             }
 
             // Send current game state to requesting client

@@ -181,6 +181,7 @@ class Game {
      * Next turn
      */
     nextTurn() {
+        this.dice = [0, 0]; // Reset dice for the new turn
         this.doublesCount = 0;
         this.turnActionsCompleted = false;
         
