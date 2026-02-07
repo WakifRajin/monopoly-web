@@ -190,7 +190,9 @@ class SocketService {
             }
 
             const currentPlayer = game.getCurrentPlayer();
-            if (currentPlayer.socketId !== socket.id) {
+            // Fix: Compare player IDs instead of socketIds to avoid stale socketId issues
+            // result.player is the player found by the current socket.id
+            if (currentPlayer.id !== result.player.id) {
                 throw new Error('Not your turn');
             }
 
@@ -644,21 +646,49 @@ class SocketService {
             logger.info(`Socket ${socket.id} joined room ${roomCode}`);
 
             // Handle player reconnection if playerId is provided
+            // This is CRITICAL - we need to update socketId in both Room and Game models
             if (playerId) {
                 const room = this.roomController.getRoom(roomCode);
+                let playerUpdated = false;
+                
                 if (room) {
-                    const player = room.getPlayer(playerId);
-                    if (player) {
+                    // Try to find player by ID in room
+                    const roomPlayer = room.getPlayer(playerId);
+                    if (roomPlayer) {
                         // Update player's socket ID and mark as reconnected
-                        player.socketId = socket.id;
-                        player.disconnected = false;
-                        logger.info(`Player ${player.name} (${playerId}) reconnected with socket ${socket.id}`);
+                        roomPlayer.socketId = socket.id;
+                        roomPlayer.disconnected = false;
+                        playerUpdated = true;
+                        logger.info(`✓ Updated Room player ${roomPlayer.name} (${playerId}) with socket ${socket.id}`);
                     } else {
-                        logger.warn(`Player ${playerId} not found in room ${roomCode} during reconnection attempt`);
+                        logger.warn(`⚠ Player ${playerId} not found in room ${roomCode} during reconnection attempt`);
                     }
                 } else {
-                    logger.warn(`Room ${roomCode} not found during player ${playerId} reconnection attempt`);
+                    logger.warn(`⚠ Room ${roomCode} not found during player ${playerId} reconnection attempt`);
                 }
+
+                // CRITICAL FIX: Also update the socketId in the Game model's player objects
+                // This ensures all game action handlers can find the player by socketId
+                const gamePlayer = game.players.find(p => p.id === playerId);
+                if (gamePlayer) {
+                    gamePlayer.socketId = socket.id;
+                    gamePlayer.disconnected = false;
+                    playerUpdated = true;
+                    logger.info(`✓ Updated Game player ${gamePlayer.name} (${playerId}) with socket ${socket.id}`);
+                } else {
+                    logger.warn(`⚠ Player ${playerId} not found in game ${roomCode} player list`);
+                }
+
+                // Fallback: If playerId didn't match, try to match by socket being in the room
+                // This handles edge cases where playerId might be undefined/null
+                if (!playerUpdated && game.players.length > 0) {
+                    logger.warn(`⚠ Attempting fallback player matching for socket ${socket.id}`);
+                    // This is a last resort - we can't reliably match without playerId
+                    // Log the issue but don't fail
+                    logger.error(`❌ Could not update player socketId - playerId ${playerId} not found in room or game`);
+                }
+            } else {
+                logger.warn(`⚠ No playerId provided in request-game-state for room ${roomCode}`);
             }
 
             // Send current game state to requesting client

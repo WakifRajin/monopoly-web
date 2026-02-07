@@ -228,6 +228,13 @@ class SocketClient {
     }
 
     /**
+     * Request game state from server
+     */
+    requestGameState(roomCode, playerId) {
+        this.socket.emit('request-game-state', { roomCode, playerId });
+    }
+
+    /**
      * Roll dice
      */
     rollDice() {

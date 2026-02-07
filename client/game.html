@@ -527,6 +527,13 @@
                 }
             });
 
+            // Fix race condition: check if socket is already connected
+            // (socketClient may have already connected before this listener was registered)
+            if (socketClient.connected || (socketClient.socket && socketClient.socket.connected)) {
+                console.log('Socket already connected, requesting game state immediately for room:', roomCode);
+                socketClient.socket.emit('request-game-state', { roomCode, playerId });
+            }
+
             // Handle game state response
             socketClient.on('game-state', (data) => {
                 console.log('✓ Received game state from server:', data);
