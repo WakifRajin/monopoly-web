@@ -48,10 +48,12 @@ class SocketClient {
 
         this.socket.on('connect_error', (error) => {
             console.error('✗ Connection error:', error.message);
-            console.log('  Details:', {
-                type: error.type,
-                description: error.description
-            });
+            if (error.type || error.description) {
+                console.log('  Details:', {
+                    type: error.type,
+                    description: error.description
+                });
+            }
             this.emit('connection-changed', { state: CONSTANTS.CONNECTION_STATES.CONNECTING });
         });
 
