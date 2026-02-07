@@ -519,8 +519,8 @@
             window.persistenceInstance = persistence;
             
             // Configuration constants
-            const SOCKET_POLL_INTERVAL_MS = 50;
-            const SOCKET_INITIALIZATION_TIMEOUT = 10000;
+            const SOCKET_POLL_INTERVAL_MS = 50;  // How often to check if socket is initialized (milliseconds)
+            const SOCKET_INITIALIZATION_TIMEOUT = 10000;  // Max time to wait for socket initialization (milliseconds)
             
             // Deduplication flag to prevent multiple request-game-state calls
             let requestGameStateSent = false;

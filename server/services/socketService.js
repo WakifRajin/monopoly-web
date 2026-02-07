@@ -910,8 +910,6 @@ class SocketService {
                         logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId: ${stalePlayers.map(p => `${p.name} (${p.id}): socketId=${p.socketId}, disconnected=${p.disconnected}`).join(', ')}`);
                     }
                     
-                    logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId in room ${roomCode}`);
-                    
                     if (stalePlayers.length === 0) {
                         logger.info(`[REQUEST-GAME-STATE] No stale players found in room ${roomCode}`);
                     } else {
