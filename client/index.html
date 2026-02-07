@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bangladeshi Monopoly - Lobby</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/lobby.css">
+    <link rel="stylesheet" href="/css/modal.css">
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen font-['Inter']">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6 shadow-lg">
+        <div class="container mx-auto">
+            <h1 class="text-4xl font-bold text-center">🎲 Bangladeshi Monopoly</h1>
+            <p class="text-center mt-2 text-green-100">Multiplayer Board Game</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Connection Status -->
+        <div id="connection-status" class="mb-6 p-4 rounded-lg shadow-md hidden">
+            <div class="flex items-center gap-3">
+                <div class="status-indicator"></div>
+                <span class="status-text font-semibold"></span>
+            </div>
+        </div>
+
+        <!-- Landing Section -->
+        <section id="landing-section" class="space-y-8">
+            <!-- Hero Section -->
+            <div class="bg-white rounded-xl shadow-xl p-8 text-center">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">Welcome to Monopoly!</h2>
+                <p class="text-gray-600 mb-6">Play the classic Bangladeshi-themed Monopoly with friends online or on your local network.</p>
+                
+                <div class="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                    <button id="create-room-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
+                        🏠 Create Room
+                    </button>
+                    <button id="join-room-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg transition transform hover:scale-105 shadow-lg">
+                        🚪 Join Room
+                    </button>
+                </div>
+            </div>
+
+            <!-- Public Rooms Section -->
+            <div class="bg-white rounded-xl shadow-xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Public Rooms</h2>
+                    <button id="refresh-rooms-btn" class="text-blue-600 hover:text-blue-700 font-semibold">
+                        🔄 Refresh
+                    </button>
+                </div>
+                
+                <div id="public-rooms-list" class="space-y-3">
+                    <p class="text-gray-500 text-center py-8">Loading rooms...</p>
+                </div>
+            </div>
+
+            <!-- How to Play -->
+            <div class="bg-white rounded-xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">How to Play</h2>
+                <ul class="space-y-2 text-gray-700">
+                    <li>• Roll dice to move around the Bangladeshi-themed board</li>
+                    <li>• Buy properties and collect rent from other players</li>
+                    <li>• Build houses and hotels to increase rent</li>
+                    <li>• Trade properties with other players</li>
+                    <li>• Avoid bankruptcy to win the game!</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Room Section (Hidden initially) -->
+        <section id="room-section" class="hidden">
+            <div class="bg-white rounded-xl shadow-xl p-8">
+                <!-- Room Header -->
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Room: <span id="room-code" class="text-green-600">------</span></h2>
+                        <p class="text-gray-600 mt-1">Waiting for players...</p>
+                    </div>
+                    <button id="leave-room-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition">
+                        Leave Room
+                    </button>
+                </div>
+
+                <!-- Players List -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Players (<span id="player-count">0</span>/<span id="max-players">4</span>)</h3>
+                    <div id="players-list" class="space-y-2">
+                        <!-- Player cards will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Game Settings (Only visible to host) -->
+                <div id="game-settings-section" class="mb-6 hidden">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">Starting Money (৳)</label>
+                            <input type="number" id="starting-money" value="15000" min="5000" max="50000" step="1000" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-semibold mb-2">Max Players</label>
+                            <select id="max-players-select" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                                <option value="2">2 Players</option>
+                                <option value="3">3 Players</option>
+                                <option value="4" selected>4 Players</option>
+                                <option value="5">5 Players</option>
+                                <option value="6">6 Players</option>
+                                <option value="7">7 Players</option>
+                                <option value="8">8 Players</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ready/Start Buttons -->
+                <div class="flex gap-4">
+                    <button id="ready-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition">
+                        Ready
+                    </button>
+                    <button id="start-game-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition hidden">
+                        Start Game
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="text-2xl font-bold">Create Room</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Your Name</label>
+                        <input type="text" id="host-name" maxlength="20" placeholder="Enter your name" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="room-public" checked class="w-5 h-5 text-green-600">
+                        <label for="room-public" class="text-gray-700 font-semibold">Make room public</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="create-room-confirm-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition">
+                    Create
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Room Modal -->
+    <div id="join-room-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="text-2xl font-bold">Join Room</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Your Name</label>
+                        <input type="text" id="player-name" maxlength="20" placeholder="Enter your name" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Room Code</label>
+                        <input type="text" id="room-code-input" maxlength="6" placeholder="Enter 6-digit room code" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="join-room-confirm-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">
+                    Join
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification-toast" class="fixed bottom-4 right-4 hidden">
+        <div class="bg-gray-800 text-white px-6 py-4 rounded-lg shadow-xl">
+            <p id="notification-message"></p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/utils/constants.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/network/socketClient.js"></script>
+    <script src="/js/ui/lobby.js"></script>
+    <script src="/js/ui/notifications.js"></script>
+</body>
+</html>

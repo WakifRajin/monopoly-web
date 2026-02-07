@@ -1,0 +1,90 @@
+/* Main Styles */
+body {
+    font-family: 'Inter', sans-serif;
+    overscroll-behavior: none;
+}
+
+/* Connection Status Indicator */
+#connection-status {
+    background: white;
+    border-left: 4px solid;
+}
+
+#connection-status.connected {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+#connection-status.disconnected {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+}
+
+#connection-status.connecting {
+    border-color: #f59e0b;
+    background-color: #fffbeb;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.connected .status-indicator {
+    background-color: #10b981;
+}
+
+.disconnected .status-indicator {
+    background-color: #ef4444;
+}
+
+.connecting .status-indicator {
+    background-color: #f59e0b;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.slide-up {
+    animation: slideUp 0.3s ease-out;
+}
