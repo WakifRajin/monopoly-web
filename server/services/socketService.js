@@ -688,18 +688,27 @@ class SocketService {
                 // Fallback: No playerId provided, try to find a disconnected player to reconnect
                 logger.warn(`⚠ No playerId provided in request-game-state for room ${roomCode}, attempting fallback reconnection`);
                 
-                // Get room (reuse from earlier if already fetched)
                 const room = this.roomController.getRoom(roomCode);
-                if (room && game) {
+                
+                // Early exit if room or game not found
+                if (!room) {
+                    logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
+                } else if (!game) {
+                    logger.warn(`⚠ Game ${roomCode} not available for fallback reconnection`);
+                } else {
                     // Find disconnected players in the room
                     const disconnectedPlayers = room.players.filter(p => p.disconnected);
                     logger.info(`Found ${disconnectedPlayers.length} disconnected player(s) in room ${roomCode}`);
                     
-                    if (disconnectedPlayers.length > 0) {
-                        // Check if this socket ID isn't already assigned to any player in the room
+                    if (disconnectedPlayers.length === 0) {
+                        logger.info(`No disconnected players found in room ${roomCode}`);
+                    } else {
+                        // Check if this socket ID is already assigned
                         const existingPlayer = room.getPlayerBySocketId(socket.id);
                         
-                        if (!existingPlayer && disconnectedPlayers.length === 1) {
+                        if (existingPlayer) {
+                            logger.info(`Socket ${socket.id} already assigned to player ${existingPlayer.name} (${existingPlayer.id})`);
+                        } else if (disconnectedPlayers.length === 1) {
                             // Only one disconnected player, safely reconnect them
                             const player = disconnectedPlayers[0];
                             
@@ -714,20 +723,10 @@ class SocketService {
                             }
                             
                             logger.info(`✓ Fallback reconnection successful: player ${player.name} (${player.id}) reconnected with socket ${socket.id}`);
-                        } else if (!existingPlayer && disconnectedPlayers.length > 1) {
+                        } else {
+                            // Multiple disconnected players - cannot safely reconnect without playerId
                             logger.warn(`⚠ Multiple disconnected players found (${disconnectedPlayers.length}), cannot safely reconnect without playerId`);
-                        } else if (existingPlayer) {
-                            logger.info(`Socket ${socket.id} already assigned to player ${existingPlayer.name} (${existingPlayer.id})`);
                         }
-                    } else {
-                        logger.info(`No disconnected players found in room ${roomCode}`);
-                    }
-                } else {
-                    if (!room) {
-                        logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
-                    }
-                    if (!game) {
-                        logger.warn(`⚠ Game ${roomCode} not available for fallback reconnection`);
                     }
                 }
             }
