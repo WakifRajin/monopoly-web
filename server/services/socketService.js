@@ -50,6 +50,7 @@ class SocketService {
             // Game persistence events
             socket.on('save-game', () => this.handleSaveGame(socket));
             socket.on('get-game-state', () => this.handleGetGameState(socket));
+            socket.on('load-game', (data) => this.handleLoadGame(socket, data));
 
             // Chat events
             socket.on('chat-message', (data) => this.handleChatMessage(socket, data));
@@ -615,6 +616,75 @@ class SocketService {
             logger.info(`Game state retrieved for room ${result.room.code}`);
         } catch (error) {
             logger.error('Error getting game state:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle load game
+     */
+    handleLoadGame(socket, data) {
+        try {
+            const result = this.roomController.getPlayerBySocketId(socket.id);
+            if (!result) {
+                throw new Error('Player not found');
+            }
+
+            // Only host can load games
+            if (!result.room.isHost(result.player.id)) {
+                throw new Error('Only the host can load games');
+            }
+
+            // Load and validate game state
+            const loadedGameState = this.gameController.loadGame(data.gameState);
+            
+            // Apply loaded state to current game
+            const game = this.gameController.getGame(result.room.code);
+            if (!game) {
+                throw new Error('Game not found');
+            }
+
+            // Restore game properties from loaded state
+            game.turn = loadedGameState.turn || 0;
+            game.currentPlayerIndex = loadedGameState.currentPlayerIndex || 0;
+            game.housesRemaining = loadedGameState.housesRemaining || 32;
+            game.hotelsRemaining = loadedGameState.hotelsRemaining || 12;
+
+            // Restore player states
+            if (loadedGameState.players) {
+                loadedGameState.players.forEach((savedPlayer, index) => {
+                    if (game.players[index]) {
+                        game.players[index].money = savedPlayer.money;
+                        game.players[index].position = savedPlayer.position;
+                        game.players[index].properties = savedPlayer.properties || [];
+                        game.players[index].inJail = savedPlayer.inJail || false;
+                        game.players[index].jailTurns = savedPlayer.jailTurns || 0;
+                        game.players[index].getOutOfJailFreeCards = savedPlayer.getOutOfJailFreeCards || 0;
+                    }
+                });
+            }
+
+            // Restore board state
+            if (loadedGameState.board) {
+                loadedGameState.board.forEach((savedSpace, index) => {
+                    if (game.board[index] && savedSpace) {
+                        game.board[index].owner = savedSpace.owner;
+                        game.board[index].houses = savedSpace.houses || 0;
+                        game.board[index].hotels = savedSpace.hotels || 0;
+                        game.board[index].mortgaged = savedSpace.mortgaged || false;
+                    }
+                });
+            }
+
+            // Broadcast updated game state to all players
+            this.io.to(result.room.code).emit('game-loaded', {
+                success: true,
+                game: game.toJSON()
+            });
+
+            logger.info(`Game loaded in room ${result.room.code}`);
+        } catch (error) {
+            logger.error('Error loading game:', error.message);
             socket.emit('error', { message: error.message });
         }
     }

@@ -30,7 +30,38 @@ class Game {
         this.notificationButtons = document.getElementById('notification-buttons');
         this.closePropertyModal = document.getElementById('close-property-modal');
 
+        // Stats tracking
+        this.statsUI = null;
+        
         this.initialize();
+    }
+
+    /**
+     * Initialize stats tracking
+     */
+    initStats() {
+        if (typeof StatsUI !== 'undefined' && window.statsUI) {
+            this.statsUI = window.statsUI;
+            this.statsUI.init();
+            console.log('✓ Stats tracking initialized');
+        }
+    }
+
+    /**
+     * Track stats event
+     */
+    trackStats(eventType, data) {
+        if (this.statsUI) {
+            try {
+                // Add current player ID to data if not present
+                if (!data.playerId && this.currentPlayerId) {
+                    data.playerId = this.currentPlayerId;
+                }
+                this.statsUI.updateStats(eventType, data);
+            } catch (error) {
+                console.error('Stats tracking error:', error);
+            }
+        }
     }
 
     /**
@@ -47,6 +78,9 @@ class Game {
         if (this.roomCode) {
             this.log('Connecting to room...');
         }
+        
+        // Initialize stats after a short delay to ensure StatsUI is loaded
+        setTimeout(() => this.initStats(), 100);
     }
 
     /**
@@ -137,6 +171,36 @@ class Game {
         this.socket.on('trade-completed', (data) => {
             this.handleTradeCompleted(data);
         });
+        
+        // Auction events
+        this.socket.on('auction-won', (data) => {
+            if (data.winnerId === this.currentPlayerId) {
+                this.trackStats('auction-won', {
+                    playerId: data.winnerId,
+                    amount: data.amount,
+                    propertyName: data.propertyName
+                });
+            }
+        });
+        
+        // Bankruptcy and game end
+        this.socket.on('player-bankrupt', (data) => {
+            if (data.creditorId === this.currentPlayerId) {
+                this.trackStats('player-bankrupt', {
+                    playerId: this.currentPlayerId,
+                    creditorId: data.creditorId
+                });
+            }
+        });
+        
+        this.socket.on('game-ended', (data) => {
+            const duration = data.duration || 0;
+            this.trackStats('game-ended', {
+                playerId: this.currentPlayerId,
+                winnerId: data.winnerId,
+                duration: duration
+            });
+        });
     }
 
     /**
@@ -218,6 +282,13 @@ class Game {
         
         // Update game state
         this.updateGameState(game);
+        
+        // Track stats
+        this.trackStats('property-purchased', {
+            playerId: playerId,
+            price: property.price,
+            propertyName: property.name
+        });
     }
 
     /**
@@ -343,6 +414,21 @@ class Game {
         
         // Update game state
         this.updateGameState(game);
+        
+        // Track stats
+        if (property.hotels > 0) {
+            this.trackStats('hotel-built', {
+                playerId: playerId,
+                cost: property.houseCost || 0,
+                propertyName: property.name
+            });
+        } else {
+            this.trackStats('house-built', {
+                playerId: playerId,
+                cost: property.houseCost || 0,
+                propertyName: property.name
+            });
+        }
     }
 
     /**
@@ -406,6 +492,11 @@ class Game {
     handleTradeCompleted(data) {
         this.log(`Trade completed between players`);
         this.updateGameState(data.game);
+        
+        // Track stats for current player
+        this.trackStats('trade-completed', {
+            playerId: this.currentPlayerId
+        });
     }
 
     /**
