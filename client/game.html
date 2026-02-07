@@ -526,6 +526,9 @@
             socketClient.on('game-state', (data) => {
                 console.log('✓ Received game state from server:', data);
                 
+                // Let the game instance handle the state update
+                // (The game.js setupSocketListeners also has a handler for this event)
+                
                 // Initialize trade and auction if not already done
                 if (!trade && data.game) {
                     trade = new Trade(socketClient, data.game);

@@ -104,6 +104,10 @@ class SocketClient {
             this.emit('game-started', data);
         });
 
+        this.socket.on('game-state', (data) => {
+            this.emit('game-state', data);
+        });
+
         this.socket.on('public-rooms-list', (data) => {
             this.emit('public-rooms-list', data);
         });
