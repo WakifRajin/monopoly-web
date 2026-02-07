@@ -44,7 +44,10 @@ const CONSTANTS = {
         ERROR: 'error',
         WARNING: 'warning',
         INFO: 'info'
-    }
+    },
+    
+    // Chat settings
+    MAX_CHAT_MESSAGE_LENGTH: 500
 };
 
 // Make constants available globally

@@ -229,9 +229,12 @@ function validateTradeOffer(fromPlayer, toPlayer, offer, game) {
 function sanitizeChatMessage(message) {
     if (typeof message !== 'string') return '';
     
-    // Remove HTML tags and limit length
+    // Remove all HTML tags, script tags, and potential XSS vectors
     return message
-        .replace(/<[^>]*>/g, '')
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+        .replace(/<[^>]*>/g, '') // Remove all HTML tags
+        .replace(/javascript:/gi, '') // Remove javascript: protocol
+        .replace(/on\w+\s*=/gi, '') // Remove event handlers
         .trim()
         .substring(0, 500);
 }

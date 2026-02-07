@@ -461,8 +461,10 @@
             const roomCode = urlParams.get('room');
 
             if (!roomCode) {
-                alert('No room code provided. Redirecting to lobby...');
-                window.location.href = '/index.html';
+                notifications.error('No room code provided. Redirecting to lobby...');
+                setTimeout(() => {
+                    window.location.href = '/index.html';
+                }, 2000);
                 return;
             }
 
