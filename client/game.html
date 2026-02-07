@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monopoly Game - Bangladeshi Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for the game board and elements */
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: 1.6fr repeat(9, 1fr) 1.6fr;
+            grid-template-rows: 1.6fr repeat(9, 1fr) 1.6fr;
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 800px;
+            max-height: 800px;
+            margin: 2rem auto;
+            border: 2px solid black;
+            background-color: #cde6d0;
+            position: relative;
+        }
+
+        .space {
+            border: 1px solid black;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            text-align: center;
+            font-size: clamp(0.6rem, 1.2vmin, 0.8rem);
+            overflow: hidden;
+            padding: 3px;
+            line-height: 1.1;
+        }
+
+        .corner { grid-row: span 1; grid-column: span 1; }
+        .top-row { grid-row: 1; }
+        .bottom-row { grid-row: 11; }
+        .left-col { grid-column: 1; }
+        .right-col { grid-column: 11; }
+
+        /* Grid assignments for all 40 spaces */
+        #space-0 { grid-area: 11 / 11; }
+        #space-1 { grid-area: 11 / 10; }
+        #space-2 { grid-area: 11 / 9; }
+        #space-3 { grid-area: 11 / 8; }
+        #space-4 { grid-area: 11 / 7; }
+        #space-5 { grid-area: 11 / 6; }
+        #space-6 { grid-area: 11 / 5; }
+        #space-7 { grid-area: 11 / 4; }
+        #space-8 { grid-area: 11 / 3; }
+        #space-9 { grid-area: 11 / 2; }
+        #space-10 { grid-area: 11 / 1; }
+        #space-11 { grid-area: 10 / 1; }
+        #space-12 { grid-area: 9 / 1; }
+        #space-13 { grid-area: 8 / 1; }
+        #space-14 { grid-area: 7 / 1; }
+        #space-15 { grid-area: 6 / 1; }
+        #space-16 { grid-area: 5 / 1; }
+        #space-17 { grid-area: 4 / 1; }
+        #space-18 { grid-area: 3 / 1; }
+        #space-19 { grid-area: 2 / 1; }
+        #space-20 { grid-area: 1 / 1; }
+        #space-21 { grid-area: 1 / 2; }
+        #space-22 { grid-area: 1 / 3; }
+        #space-23 { grid-area: 1 / 4; }
+        #space-24 { grid-area: 1 / 5; }
+        #space-25 { grid-area: 1 / 6; }
+        #space-26 { grid-area: 1 / 7; }
+        #space-27 { grid-area: 1 / 8; }
+        #space-28 { grid-area: 1 / 9; }
+        #space-29 { grid-area: 1 / 10; }
+        #space-30 { grid-area: 1 / 11; }
+        #space-31 { grid-area: 2 / 11; }
+        #space-32 { grid-area: 3 / 11; }
+        #space-33 { grid-area: 4 / 11; }
+        #space-34 { grid-area: 5 / 11; }
+        #space-35 { grid-area: 6 / 11; }
+        #space-36 { grid-area: 7 / 11; }
+        #space-37 { grid-area: 8 / 11; }
+        #space-38 { grid-area: 9 / 11; }
+        #space-39 { grid-area: 10 / 11; }
+
+        .center-area {
+            grid-area: 2 / 2 / 11 / 11;
+            background-color: #a4d1a8;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid black;
+        }
+
+        .property-color {
+            height: 15%;
+            width: 100%;
+            border-bottom: 1px solid black;
+            font-size: 0.6rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .space-name {
+            font-weight: bold;
+            padding: 2px 0;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .space-price {
+            font-size: 0.7rem;
+            flex-shrink: 0;
+            margin-top: auto;
+        }
+
+        /* Player Markers */
+        .player-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0,0,0,0.7);
+            transition: top 0.5s ease-in-out, left 0.5s ease-in-out;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 1px black;
+            font-size: 14px;
+        }
+
+        /* Dice Styling */
+        .dice-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .dice {
+            width: 50px;
+            height: 50px;
+            background-color: white;
+            border: 1px solid black;
+            border-radius: 5px;
+            display: grid;
+            padding: 5px;
+            grid-template-areas:
+                "a . c"
+                "e g f"
+                "d . b";
+            box-shadow: inset 0 5px white, inset 0 -5px #bbb, inset 5px 0 #d7d7d7, inset -5px 0 #d7d7d7;
+        }
+
+        .dot {
+            display: block;
+            align-self: center;
+            justify-self: center;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: black;
+        }
+
+        .dot:nth-child(1) { grid-area: a; }
+        .dot:nth-child(2) { grid-area: b; }
+        .dot:nth-child(3) { grid-area: c; }
+        .dot:nth-child(4) { grid-area: d; }
+        .dot:nth-child(5) { grid-area: e; }
+        .dot:nth-child(6) { grid-area: f; }
+        .dot:nth-child(7) { grid-area: g; }
+
+        .dice .dot { visibility: hidden; }
+        .dice[data-value="1"] .dot:nth-child(7) { visibility: visible; }
+        .dice[data-value="2"] .dot:nth-child(1), .dice[data-value="2"] .dot:nth-child(2) { visibility: visible; }
+        .dice[data-value="3"] .dot:nth-child(1), .dice[data-value="3"] .dot:nth-child(2), .dice[data-value="3"] .dot:nth-child(7) { visibility: visible; }
+        .dice[data-value="4"] .dot:nth-child(1), .dice[data-value="4"] .dot:nth-child(2), .dice[data-value="4"] .dot:nth-child(3), .dice[data-value="4"] .dot:nth-child(4) { visibility: visible; }
+        .dice[data-value="5"] .dot:nth-child(1), .dice[data-value="5"] .dot:nth-child(2), .dice[data-value="5"] .dot:nth-child(3), .dice[data-value="5"] .dot:nth-child(4), .dice[data-value="5"] .dot:nth-child(7) { visibility: visible; }
+        .dice[data-value="6"] .dot:nth-child(1), .dice[data-value="6"] .dot:nth-child(2), .dice[data-value="6"] .dot:nth-child(3), .dice[data-value="6"] .dot:nth-child(4), .dice[data-value="6"] .dot:nth-child(5), .dice[data-value="6"] .dot:nth-child(6) { visibility: visible; }
+
+        /* Log Screen */
+        #log-screen {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        #log-screen p {
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        /* Chat Screen */
+        #chat-screen {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        #chat-screen p {
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        /* Property Ownership Indicator */
+        .ownership-marker {
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+            border: 1px solid white;
+            box-shadow: 0 0 3px rgba(0,0,0,0.5);
+            z-index: 1;
+        }
+
+        /* Player Info Panel */
+        .player-info {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            background-color: white;
+        }
+
+        .player-info.active-player {
+            background-color: #e0f2fe;
+            border-color: #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        .player-properties span {
+            display: inline-block;
+            padding: 2px 5px;
+            margin: 2px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            border: 1px solid #ccc;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .building-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.6rem;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 1px 3px;
+            border-radius: 3px;
+            z-index: 2;
+        }
+
+        /* Modal Styling */
+        .modal-overlay {
+            backdrop-filter: blur(3px);
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .connection-status.connecting {
+            background-color: #f59e0b;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Connection Status Indicator -->
+    <div id="connection-status" class="connection-status connecting">Connecting...</div>
+
+    <!-- Main Game Layout -->
+    <div class="flex flex-col lg:flex-row gap-4 p-4 min-h-screen">
+        <!-- Left Sidebar - Player Info -->
+        <div class="w-full lg:w-64 space-y-4 order-2 lg:order-1">
+            <div class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-lg font-bold mb-3 text-gray-800">Players</h3>
+                <div id="player-info-panels" class="space-y-2">
+                    <!-- Player panels will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Game Controls -->
+            <div class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-lg font-bold mb-3 text-gray-800">Actions</h3>
+                <div id="action-buttons" class="space-y-2">
+                    <button id="buy-property-btn" class="w-full bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                        Buy Property
+                    </button>
+                    <button id="build-btn" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                        Build
+                    </button>
+                    <button id="mortgage-btn" class="w-full bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                        Mortgage
+                    </button>
+                    <button id="trade-btn" class="w-full bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                        Trade
+                    </button>
+                    <button id="end-turn-btn" class="w-full bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                        End Turn
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center - Game Board -->
+        <div class="flex-grow flex justify-center items-start order-1 lg:order-2">
+            <div class="board" id="game-board">
+                <!-- Board spaces will be generated by JavaScript -->
+                
+                <!-- Center Area -->
+                <div class="center-area">
+                    <h1 class="text-2xl font-bold mb-4 text-green-900">Monopoly</h1>
+                    
+                    <!-- Dice Area -->
+                    <div class="dice-area mb-4">
+                        <div class="dice-container">
+                            <div id="dice1" class="dice" data-value="1">
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                            </div>
+                            <div id="dice2" class="dice" data-value="1">
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                                <span class="dot"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Turn Indicator -->
+                    <div id="turn-indicator" class="mb-4 text-lg font-semibold text-gray-800">
+                        Waiting to start...
+                    </div>
+
+                    <!-- Roll Dice Button -->
+                    <button id="roll-dice-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg disabled:opacity-50" disabled>
+                        Roll Dice
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Game Log & Chat -->
+        <div class="w-full lg:w-80 space-y-4 order-3">
+            <!-- Game Log -->
+            <div class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-lg font-bold mb-3 text-gray-800">Game Log</h3>
+                <div id="log-screen">
+                    <p class="text-gray-600">Waiting for game to start...</p>
+                </div>
+            </div>
+
+            <!-- Chat -->
+            <div class="bg-white rounded-lg shadow-lg p-4">
+                <h3 class="text-lg font-bold mb-3 text-gray-800">Chat</h3>
+                <div id="chat-screen" class="mb-2">
+                    <p class="text-gray-600">Chat is ready...</p>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm">
+                    <button id="send-chat-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Modal -->
+    <div id="notification-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 modal-overlay flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-md">
+            <p id="notification-message" class="text-xl mb-6">Notification</p>
+            <div id="notification-buttons" class="flex gap-2 justify-center">
+                <!-- Buttons will be added dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Property Details Modal -->
+    <div id="property-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 modal-overlay flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 class="text-2xl font-bold mb-4" id="property-name">Property Name</h3>
+            <div id="property-details" class="space-y-2 text-sm">
+                <!-- Property details will be shown here -->
+            </div>
+            <button id="close-property-modal" class="mt-4 w-full bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/client/js/utils/constants.js"></script>
+    <script src="/client/js/utils/helpers.js"></script>
+    <script src="/client/js/network/socketClient.js"></script>
+    <script src="/client/js/core/board.js"></script>
+    <script src="/client/js/core/game.js"></script>
+    <script src="/client/js/ui/chat.js"></script>
+    <script>
+        // Initialize the game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Connect to server
+            socketClient.connect();
+
+            // Initialize game components
+            const board = new Board('game-board');
+            const game = new Game(board, socketClient);
+            const chat = new Chat('chat-screen', 'chat-input', 'send-chat-btn', socketClient);
+
+            // Make game accessible globally for debugging
+            window.gameInstance = game;
+            window.boardInstance = board;
+            window.chatInstance = chat;
+
+            // Get room code from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+
+            if (roomCode) {
+                console.log('Auto-joining room:', roomCode);
+            } else {
+                console.warn('No room code provided in URL');
+            }
+        });
+    </script>
+</body>
+</html>
