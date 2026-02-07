@@ -463,6 +463,129 @@ class GameController {
     }
 
     /**
+     * Start auction for a property
+     */
+    startAuction(roomCode, propertyIndex) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        const property = game.board[propertyIndex];
+        if (!property || property.owner) {
+            throw new Error('Property cannot be auctioned');
+        }
+
+        game.auction = {
+            propertyIndex,
+            currentBid: 0,
+            currentBidder: null,
+            bids: [],
+            startedAt: Date.now(),
+            endTime: Date.now() + 30000, // 30 seconds
+            isActive: true
+        };
+
+        game.addHistory({
+            type: 'auction_started',
+            propertyIndex,
+            property: property.name
+        });
+
+        return game.auction;
+    }
+
+    /**
+     * Place bid in auction
+     */
+    placeBid(roomCode, playerId, amount) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (!game.auction || !game.auction.isActive) {
+            throw new Error('No active auction');
+        }
+
+        const player = game.players.find(p => p.id === playerId);
+        if (!player) {
+            throw new Error('Player not found');
+        }
+
+        // Validate bid
+        if (amount <= game.auction.currentBid) {
+            throw new Error('Bid must be higher than current bid');
+        }
+
+        if (amount > player.money) {
+            throw new Error('Insufficient funds');
+        }
+
+        // Place bid
+        game.auction.currentBid = amount;
+        game.auction.currentBidder = playerId;
+        game.auction.bids.push({
+            playerId,
+            amount,
+            timestamp: Date.now()
+        });
+
+        // Reset timer
+        game.auction.endTime = Date.now() + 10000; // 10 more seconds
+
+        game.addHistory({
+            type: 'auction_bid',
+            playerId,
+            amount
+        });
+
+        return game.auction;
+    }
+
+    /**
+     * End auction and award property
+     */
+    endAuction(roomCode) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        if (!game.auction || !game.auction.isActive) {
+            throw new Error('No active auction');
+        }
+
+        game.auction.isActive = false;
+        const auction = game.auction;
+
+        // Award property to winner
+        if (auction.currentBidder && auction.currentBid > 0) {
+            const winner = game.players.find(p => p.id === auction.currentBidder);
+            const property = game.board[auction.propertyIndex];
+
+            if (winner && property) {
+                winner.removeMoney(auction.currentBid);
+                property.owner = winner.id;
+                winner.addProperty(auction.propertyIndex);
+
+                game.addHistory({
+                    type: 'auction_won',
+                    playerId: winner.id,
+                    propertyIndex: auction.propertyIndex,
+                    amount: auction.currentBid
+                });
+
+                logger.info(`Player ${winner.name} won auction for ${property.name} with bid of ৳${auction.currentBid}`);
+            }
+        }
+
+        const result = { ...auction };
+        game.auction = null;
+        return result;
+    }
+
+    /**
      * Add chat message
      */
     addChatMessage(roomCode, playerId, message) {
