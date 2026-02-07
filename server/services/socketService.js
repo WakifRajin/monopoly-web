@@ -102,8 +102,21 @@ class SocketService {
             const roomSockets = this.io.sockets.adapter.rooms.get(roomIdentifier);
             const connectedSocketIds = roomSockets ? Array.from(roomSockets) : [];
             
-            // Find a player whose socketId is stale (not in the connected sockets list)
-            const stalePlayer = room.players.find(p => !connectedSocketIds.includes(p.socketId));
+            // Find players whose socketId is stale (not in the connected sockets list)
+            const stalePlayers = room.players.filter(p => !connectedSocketIds.includes(p.socketId));
+            
+            if (stalePlayers.length === 0) {
+                logger.info(`[FIND-PLAYER] No stale players found in room ${roomIdentifier}`);
+                continue;
+            }
+            
+            if (stalePlayers.length > 1) {
+                logger.warn(`[FIND-PLAYER] Multiple stale players found (${stalePlayers.length}), cannot safely reconnect without more context`);
+                continue;
+            }
+            
+            // Only one stale player, safe to reconnect
+            const stalePlayer = stalePlayers[0];
             
             if (stalePlayer) {
                 logger.info(`[FIND-PLAYER] Found stale player ${stalePlayer.name} (${stalePlayer.id}) with old socketId ${stalePlayer.socketId}`);
@@ -894,10 +907,7 @@ class SocketService {
                     
                     // Log details for debugging
                     if (stalePlayers.length > 0) {
-                        logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId:`);
-                        stalePlayers.forEach(p => {
-                            logger.info(`  - ${p.name} (${p.id}): socketId=${p.socketId}, disconnected=${p.disconnected}`);
-                        });
+                        logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId: ${stalePlayers.map(p => `${p.name} (${p.id}): socketId=${p.socketId}, disconnected=${p.disconnected}`).join(', ')}`);
                     }
                     
                     logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId in room ${roomCode}`);
@@ -918,7 +928,6 @@ class SocketService {
                                 logger.info(`[REQUEST-GAME-STATE] Attempting to reconnect single stale player ${player.name} (${player.id})`);
                                 
                                 // Update both room and game models (best-effort atomic update)
-                                const oldSocketId = player.socketId;
                                 player.socketId = socket.id;
                                 player.disconnected = false;
                                 
@@ -926,7 +935,7 @@ class SocketService {
                                 if (gamePlayer) {
                                     gamePlayer.socketId = socket.id;
                                     gamePlayer.disconnected = false;
-                                    logger.info(`[REQUEST-GAME-STATE] ✓ Updated both Room and Game player socketId from ${oldSocketId} to ${socket.id}`);
+                                    logger.info(`[REQUEST-GAME-STATE] ✓ Updated both Room and Game player socketId to ${socket.id} for player ${player.name}`);
                                 } else {
                                     logger.warn(`[REQUEST-GAME-STATE] ⚠ Player ${player.id} found in room but not in game model - state inconsistency detected`);
                                 }
