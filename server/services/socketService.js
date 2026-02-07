@@ -646,7 +646,7 @@ class SocketService {
 
             logger.info(`Sent game state to socket ${socket.id} for room ${roomCode}`);
         } catch (error) {
-            logger.error('Error getting game state:', error.message);
+            logger.error('Error requesting game state:', error.message);
             socket.emit('error', { message: error.message });
         }
     }

@@ -530,7 +530,7 @@
                 // (The game.js setupSocketListeners also has a handler for this event)
                 
                 // Initialize trade and auction if not already done
-                if (!trade && data.game) {
+                if (!trade && !auction && data.game) {
                     trade = new Trade(socketClient, data.game);
                     auction = new Auction(socketClient, data.game);
                     window.tradeInstance = trade;
