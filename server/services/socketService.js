@@ -62,6 +62,90 @@ class SocketService {
     }
 
     /**
+     * Helper method to find player by socket with fallback logic
+     * This provides robust player lookup even when socketId is stale
+     * 
+     * @param {Socket} socket - The socket.io socket object
+     * @returns {Object|null} - Object with {room, player} or null if not found
+     */
+    findPlayerBySocket(socket) {
+        // LAYER 1: Try the standard lookup by socketId
+        let result = this.roomController.getPlayerBySocketId(socket.id);
+        
+        if (result) {
+            return result;
+        }
+        
+        // LAYER 2: Fallback - socket.rooms contains the room codes this socket has joined
+        // Try to find the player by checking which room the socket belongs to
+        logger.info(`[FIND-PLAYER] Standard lookup failed for socket ${socket.id}, trying room-based fallback`);
+        
+        // socket.rooms is a Set containing the socket's own ID and any rooms it joined
+        const rooms = Array.from(socket.rooms);
+        logger.info(`[FIND-PLAYER] Socket ${socket.id} is in rooms:`, rooms);
+        
+        for (const roomIdentifier of rooms) {
+            // Skip the socket's own ID (socket.io adds socket.id to rooms)
+            if (roomIdentifier === socket.id) {
+                continue;
+            }
+            
+            // This is likely a room code
+            const room = this.roomController.getRoom(roomIdentifier);
+            if (!room) {
+                continue;
+            }
+            
+            logger.info(`[FIND-PLAYER] Found room ${roomIdentifier}, checking for stale player socketId`);
+            
+            // Get all currently connected sockets in this room
+            const roomSockets = this.io.sockets.adapter.rooms.get(roomIdentifier);
+            const connectedSocketIds = roomSockets ? Array.from(roomSockets) : [];
+            
+            // Find players whose socketId is stale (not in the connected sockets list)
+            const stalePlayers = room.players.filter(p => !connectedSocketIds.includes(p.socketId));
+            
+            if (stalePlayers.length === 0) {
+                logger.info(`[FIND-PLAYER] No stale players found in room ${roomIdentifier}`);
+                continue;
+            }
+            
+            if (stalePlayers.length > 1) {
+                logger.warn(`[FIND-PLAYER] Multiple stale players found (${stalePlayers.length}), cannot safely reconnect without more context`);
+                continue;
+            }
+            
+            // Only one stale player, safe to reconnect
+            const stalePlayer = stalePlayers[0];
+            
+            if (stalePlayer) {
+                logger.info(`[FIND-PLAYER] Found stale player ${stalePlayer.name} (${stalePlayer.id}) with old socketId ${stalePlayer.socketId}`);
+                logger.info(`[FIND-PLAYER] Updating socketId to ${socket.id} for both Room and Game models`);
+                
+                // Update the socketId in both Room and Game models
+                stalePlayer.socketId = socket.id;
+                stalePlayer.disconnected = false;
+                
+                // Also update in game model if game exists
+                const game = this.gameController.getGame(roomIdentifier);
+                if (game) {
+                    const gamePlayer = game.players.find(p => p.id === stalePlayer.id);
+                    if (gamePlayer) {
+                        gamePlayer.socketId = socket.id;
+                        gamePlayer.disconnected = false;
+                        logger.info(`[FIND-PLAYER] ✓ Updated socketId in both Room and Game for player ${stalePlayer.name}`);
+                    }
+                }
+                
+                return { room, player: stalePlayer };
+            }
+        }
+        
+        logger.warn(`[FIND-PLAYER] ❌ Could not find player for socket ${socket.id} even with fallback`);
+        return null;
+    }
+
+    /**
      * Handle room creation
      */
     handleCreateRoom(socket, data) {
@@ -179,7 +263,14 @@ class SocketService {
      */
     handleRollDice(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[ROLL-DICE] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -219,7 +310,14 @@ class SocketService {
      */
     handleBuyProperty(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[BUY-PROPERTY] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -251,7 +349,14 @@ class SocketService {
      */
     handleBuildHouse(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[BUILD-HOUSE] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -284,7 +389,14 @@ class SocketService {
      */
     handleMortgageProperty(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[MORTGAGE-PROPERTY] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -317,7 +429,14 @@ class SocketService {
      */
     handleUnmortgageProperty(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[UNMORTGAGE-PROPERTY] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -350,7 +469,14 @@ class SocketService {
      */
     handlePayJailFine(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[PAY-JAIL-FINE] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -387,7 +513,14 @@ class SocketService {
      */
     handleUseJailCard(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[USE-JAIL-CARD] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -420,7 +553,14 @@ class SocketService {
      */
     handleEndTurn(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[END-TURN] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -442,7 +582,14 @@ class SocketService {
      */
     handleTradeOffer(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[TRADE-OFFER] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -473,7 +620,14 @@ class SocketService {
      */
     handleTradeResponse(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[TRADE-RESPONSE] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -501,7 +655,14 @@ class SocketService {
      */
     handleStartAuction(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[START-AUCTION] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -527,7 +688,14 @@ class SocketService {
      */
     handlePlaceBid(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[PLACE-BID] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -555,7 +723,14 @@ class SocketService {
      */
     handleEndAuction(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[END-AUCTION] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -580,7 +755,14 @@ class SocketService {
      */
     handleSaveGame(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[SAVE-GAME] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -605,7 +787,14 @@ class SocketService {
      */
     handleGetGameState(socket) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[GET-GAME-STATE] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -628,9 +817,13 @@ class SocketService {
      */
     handleRequestGameState(socket, data) {
         try {
+            logger.info(`[REQUEST-GAME-STATE] START - Socket ${socket.id} requesting game state`);
+            logger.info(`[REQUEST-GAME-STATE] Data:`, JSON.stringify(data));
+            
             const { roomCode, playerId } = data;
             
             if (!roomCode) {
+                logger.error(`[REQUEST-GAME-STATE] FAIL - No room code provided`);
                 throw new Error('Room code is required');
             }
 
@@ -638,16 +831,26 @@ class SocketService {
             const game = this.gameController.getGame(roomCode);
             
             if (!game) {
+                logger.error(`[REQUEST-GAME-STATE] FAIL - Game not found for room ${roomCode}`);
                 throw new Error('Game not found');
             }
+            
+            logger.info(`[REQUEST-GAME-STATE] Game found for room ${roomCode}`);
 
             // Join the socket to the room so it receives broadcasts
             socket.join(roomCode);
-            logger.info(`Socket ${socket.id} joined room ${roomCode}`);
+            logger.info(`[REQUEST-GAME-STATE] Socket ${socket.id} joined room ${roomCode}`);
+
+            // Get all currently connected socket IDs in this room
+            const roomSockets = this.io.sockets.adapter.rooms.get(roomCode);
+            const connectedSocketIds = roomSockets ? Array.from(roomSockets) : [];
+            logger.info(`[REQUEST-GAME-STATE] Currently connected sockets in room ${roomCode}:`, connectedSocketIds);
 
             // Handle player reconnection if playerId is provided
             // This is CRITICAL - we need to update socketId in both Room and Game models
             if (playerId) {
+                logger.info(`[REQUEST-GAME-STATE] PlayerId provided: ${playerId}, attempting reconnection`);
+                
                 const room = this.roomController.getRoom(roomCode);
                 let playerUpdated = false;
                 
@@ -655,62 +858,73 @@ class SocketService {
                     // Try to find player by ID in room
                     const roomPlayer = room.getPlayer(playerId);
                     if (roomPlayer) {
+                        logger.info(`[REQUEST-GAME-STATE] Found player in Room: ${roomPlayer.name} (${playerId}), old socketId: ${roomPlayer.socketId}`);
                         // Update player's socket ID and mark as reconnected
                         roomPlayer.socketId = socket.id;
                         roomPlayer.disconnected = false;
                         playerUpdated = true;
-                        logger.info(`✓ Updated Room player ${roomPlayer.name} (${playerId}) with socket ${socket.id}`);
+                        logger.info(`[REQUEST-GAME-STATE] ✓ Updated Room player ${roomPlayer.name} (${playerId}) with socket ${socket.id}`);
                     } else {
-                        logger.warn(`⚠ Player ${playerId} not found in room ${roomCode} during reconnection attempt`);
+                        logger.warn(`[REQUEST-GAME-STATE] ⚠ Player ${playerId} not found in room ${roomCode} during reconnection attempt`);
                     }
                 } else {
-                    logger.warn(`⚠ Room ${roomCode} not found during player ${playerId} reconnection attempt`);
+                    logger.warn(`[REQUEST-GAME-STATE] ⚠ Room ${roomCode} not found during player ${playerId} reconnection attempt`);
                 }
 
                 // CRITICAL FIX: Also update the socketId in the Game model's player objects
                 // This ensures all game action handlers can find the player by socketId
                 const gamePlayer = game.players.find(p => p.id === playerId);
                 if (gamePlayer) {
+                    logger.info(`[REQUEST-GAME-STATE] Found player in Game: ${gamePlayer.name} (${playerId}), old socketId: ${gamePlayer.socketId}`);
                     gamePlayer.socketId = socket.id;
                     gamePlayer.disconnected = false;
                     playerUpdated = true;
-                    logger.info(`✓ Updated Game player ${gamePlayer.name} (${playerId}) with socket ${socket.id}`);
+                    logger.info(`[REQUEST-GAME-STATE] ✓ Updated Game player ${gamePlayer.name} (${playerId}) with socket ${socket.id}`);
                 } else {
-                    logger.warn(`⚠ Player ${playerId} not found in game ${roomCode} player list`);
+                    logger.warn(`[REQUEST-GAME-STATE] ⚠ Player ${playerId} not found in game ${roomCode} player list`);
                 }
 
                 // If player was not found in room or game, log the error
                 // We can't reliably match players without a valid playerId
                 if (!playerUpdated) {
-                    logger.error(`❌ Could not update player socketId - playerId ${playerId} not found in room or game`);
+                    logger.error(`[REQUEST-GAME-STATE] ❌ Could not update player socketId - playerId ${playerId} not found in room or game`);
                 }
             } else {
-                // Fallback: No playerId provided, try to find a disconnected player to reconnect
-                logger.warn(`⚠ No playerId provided in request-game-state for room ${roomCode}, attempting fallback reconnection`);
+                // Fallback: No playerId provided, try to find a player to reconnect
+                logger.warn(`[REQUEST-GAME-STATE] ⚠ No playerId provided in request-game-state for room ${roomCode}, attempting fallback reconnection`);
                 
                 const room = this.roomController.getRoom(roomCode);
                 
                 // Early exit if room not found (game is already validated above)
                 if (!room) {
-                    logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
+                    logger.warn(`[REQUEST-GAME-STATE] ⚠ Room ${roomCode} not found for fallback reconnection`);
                 } else {
-                    // Find disconnected players in the room
-                    const disconnectedPlayers = room.players.filter(p => p.disconnected);
-                    logger.info(`Found ${disconnectedPlayers.length} disconnected player(s) in room ${roomCode}`);
+                    logger.info(`[REQUEST-GAME-STATE] Room found, analyzing players for fallback reconnection`);
                     
-                    if (disconnectedPlayers.length === 0) {
-                        logger.info(`No disconnected players found in room ${roomCode}`);
+                    // IMPROVED FALLBACK LOGIC: Instead of only looking for disconnected players,
+                    // look for players whose socketId doesn't match any currently connected socket
+                    const stalePlayers = room.players.filter(p => !connectedSocketIds.includes(p.socketId));
+                    
+                    // Log details for debugging
+                    if (stalePlayers.length > 0) {
+                        logger.info(`[REQUEST-GAME-STATE] Found ${stalePlayers.length} player(s) with stale socketId: ${stalePlayers.map(p => `${p.name} (${p.id}): socketId=${p.socketId}, disconnected=${p.disconnected}`).join(', ')}`);
+                    }
+                    
+                    if (stalePlayers.length === 0) {
+                        logger.info(`[REQUEST-GAME-STATE] No stale players found in room ${roomCode}`);
                     } else {
                         // Check if this socket ID is already assigned
                         const existingPlayer = room.getPlayerBySocketId(socket.id);
                         
                         if (existingPlayer) {
-                            logger.info(`Socket ${socket.id} already assigned to player ${existingPlayer.name} (${existingPlayer.id})`);
-                        } else if (disconnectedPlayers.length === 1) {
-                            // Only one disconnected player, safely reconnect them
-                            const player = disconnectedPlayers[0];
+                            logger.info(`[REQUEST-GAME-STATE] Socket ${socket.id} already assigned to player ${existingPlayer.name} (${existingPlayer.id})`);
+                        } else if (stalePlayers.length === 1) {
+                            // Only one stale player, safely reconnect them
+                            const player = stalePlayers[0];
                             
                             try {
+                                logger.info(`[REQUEST-GAME-STATE] Attempting to reconnect single stale player ${player.name} (${player.id})`);
+                                
                                 // Update both room and game models (best-effort atomic update)
                                 player.socketId = socket.id;
                                 player.disconnected = false;
@@ -719,19 +933,21 @@ class SocketService {
                                 if (gamePlayer) {
                                     gamePlayer.socketId = socket.id;
                                     gamePlayer.disconnected = false;
+                                    logger.info(`[REQUEST-GAME-STATE] ✓ Updated both Room and Game player socketId to ${socket.id} for player ${player.name}`);
                                 } else {
-                                    logger.warn(`⚠ Player ${player.id} found in room but not in game model - state inconsistency detected`);
+                                    logger.warn(`[REQUEST-GAME-STATE] ⚠ Player ${player.id} found in room but not in game model - state inconsistency detected`);
                                 }
                                 
-                                logger.info(`✓ Fallback reconnection successful: player ${player.name} (${player.id}) reconnected with socket ${socket.id}`);
+                                logger.info(`[REQUEST-GAME-STATE] ✓ Fallback reconnection successful: player ${player.name} (${player.id}) reconnected with socket ${socket.id}`);
                             } catch (error) {
-                                logger.error(`❌ Error during fallback reconnection: ${error.message}`);
+                                logger.error(`[REQUEST-GAME-STATE] ❌ Error during fallback reconnection: ${error.message}`);
                                 // Rollback room player update if game update failed
                                 player.disconnected = true;
                             }
                         } else {
-                            // Multiple disconnected players - cannot safely reconnect without playerId
-                            logger.warn(`⚠ Multiple disconnected players found (${disconnectedPlayers.length}), cannot safely reconnect without playerId`);
+                            // Multiple stale players - cannot safely reconnect without playerId
+                            logger.warn(`[REQUEST-GAME-STATE] ⚠ Multiple stale players found (${stalePlayers.length}), cannot safely reconnect without playerId`);
+                            logger.warn(`[REQUEST-GAME-STATE] Stale players:`, stalePlayers.map(p => `${p.name} (${p.id})`).join(', '));
                         }
                     }
                 }
@@ -742,9 +958,9 @@ class SocketService {
                 game: game.toJSON()
             });
 
-            logger.info(`Sent game state to socket ${socket.id} for room ${roomCode}`);
+            logger.info(`[REQUEST-GAME-STATE] SUCCESS - Sent game state to socket ${socket.id} for room ${roomCode}`);
         } catch (error) {
-            logger.error('Error requesting game state:', error.message);
+            logger.error(`[REQUEST-GAME-STATE] ERROR - ${error.message}`, error.stack);
             socket.emit('error', { message: error.message });
         }
     }
@@ -754,7 +970,14 @@ class SocketService {
      */
     handleLoadGame(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[LOAD-GAME] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }
@@ -823,7 +1046,14 @@ class SocketService {
      */
     handleChatMessage(socket, data) {
         try {
-            const result = this.roomController.getPlayerBySocketId(socket.id);
+            let result = this.roomController.getPlayerBySocketId(socket.id);
+            
+            // Fallback: Try the robust lookup if standard lookup fails
+            if (!result) {
+                logger.warn(`[CHAT] Standard player lookup failed for socket ${socket.id}, trying fallback`);
+                result = this.findPlayerBySocket(socket);
+            }
+            
             if (!result) {
                 throw new Error('Player not found');
             }

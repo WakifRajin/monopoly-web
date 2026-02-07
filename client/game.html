@@ -518,20 +518,67 @@
             window.propertyCardInstance = propertyCard;
             window.persistenceInstance = persistence;
             
-            // Request game state when socket connects
+            // Configuration constants
+            const SOCKET_POLL_INTERVAL_MS = 50;  // How often to check if socket is initialized (milliseconds)
+            const SOCKET_INITIALIZATION_TIMEOUT = 10000;  // Max time to wait for socket initialization (milliseconds)
+            
+            // Deduplication flag to prevent multiple request-game-state calls
+            let requestGameStateSent = false;
+            
+            const sendRequestGameState = () => {
+                if (requestGameStateSent) {
+                    console.log('request-game-state already sent, skipping duplicate');
+                    return;
+                }
+                requestGameStateSent = true;
+                console.log('Sending request-game-state for room:', roomCode, 'playerId:', playerId);
+                socketClient.requestGameState(roomCode, playerId);
+            };
+            
+            // LAYER 1: Register the connection-changed handler (may fire if socket connects later)
             socketClient.on('connection-changed', (data) => {
                 if (data.state === CONSTANTS.CONNECTION_STATES.CONNECTED) {
-                    console.log('Socket connected, requesting game state for room:', roomCode);
-                    // Request current game state from server
-                    socketClient.requestGameState(roomCode, playerId);
+                    console.log('Socket connected via connection-changed, requesting game state for room:', roomCode);
+                    sendRequestGameState();
                 }
             });
 
-            // Fix race condition: check if socket is already connected
-            // (socketClient may have already connected before this listener was registered)
-            if (socketClient.connected || (socketClient.socket && socketClient.socket.connected)) {
-                console.log('Socket already connected, requesting game state immediately for room:', roomCode);
-                socketClient.requestGameState(roomCode, playerId);
+            // LAYER 2: BULLETPROOF FIX - Also register directly on the raw socket.io socket
+            // This ensures the request is sent even if the connection-changed event was missed
+            const setupSocketBackup = (socket) => {
+                // If already connected, send immediately
+                if (socket.connected) {
+                    console.log('Socket already connected, sending request-game-state immediately');
+                    sendRequestGameState();
+                } else {
+                    // Also register a one-time handler on the raw socket as ultimate backup
+                    socket.once('connect', () => {
+                        console.log('Socket connect event (backup), requesting game state for room:', roomCode);
+                        sendRequestGameState();
+                    });
+                }
+            };
+            
+            // LAYER 3: Check if socket exists and set up backup
+            if (socketClient.socket) {
+                setupSocketBackup(socketClient.socket);
+            } else {
+                // Socket not yet initialized, poll for it (should rarely happen)
+                console.log('Socket not yet initialized, polling...');
+                const waitForSocket = setInterval(() => {
+                    if (socketClient.socket) {
+                        clearInterval(waitForSocket);
+                        console.log('Socket initialized via polling');
+                        setupSocketBackup(socketClient.socket);
+                    }
+                }, SOCKET_POLL_INTERVAL_MS);
+                // Safety timeout - stop polling after timeout
+                setTimeout(() => {
+                    clearInterval(waitForSocket);
+                    if (!requestGameStateSent) {
+                        console.error(`Failed to send request-game-state after ${SOCKET_INITIALIZATION_TIMEOUT}ms`);
+                    }
+                }, SOCKET_INITIALIZATION_TIMEOUT);
             }
 
             // Handle game state response
