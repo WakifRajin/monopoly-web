@@ -653,7 +653,11 @@ class SocketService {
                         player.socketId = socket.id;
                         player.disconnected = false;
                         logger.info(`Player ${player.name} (${playerId}) reconnected with socket ${socket.id}`);
+                    } else {
+                        logger.warn(`Player ${playerId} not found in room ${roomCode} during reconnection attempt`);
                     }
+                } else {
+                    logger.warn(`Room ${roomCode} not found during player ${playerId} reconnection attempt`);
                 }
             }
 
