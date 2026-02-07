@@ -242,9 +242,10 @@ class LobbyUI {
 
     handleGameStarted(data) {
         notifications.success('Game starting!');
-        // Redirect to game page
+        // Redirect to game page with room code
         setTimeout(() => {
-            window.location.href = '/game.html';
+            const roomCode = this.currentRoom?.code || data.game?.roomCode || '';
+            window.location.href = `/game.html?room=${roomCode}`;
         }, 1000);
     }
 

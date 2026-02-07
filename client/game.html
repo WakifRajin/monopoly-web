@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monopoly Game - Bangladeshi Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         /* Custom CSS for the game board and elements */
@@ -447,37 +447,42 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/client/js/utils/constants.js"></script>
-    <script src="/client/js/utils/helpers.js"></script>
-    <script src="/client/js/network/socketClient.js"></script>
-    <script src="/client/js/core/board.js"></script>
-    <script src="/client/js/core/game.js"></script>
-    <script src="/client/js/ui/chat.js"></script>
+    <script src="/js/utils/constants.js"></script>
+    <script src="/js/utils/helpers.js"></script>
+    <script src="/js/network/socketClient.js"></script>
+    <script src="/js/core/board.js"></script>
+    <script src="/js/core/game.js"></script>
+    <script src="/js/ui/chat.js"></script>
     <script>
         // Initialize the game when page loads
         document.addEventListener('DOMContentLoaded', () => {
+            // Get room code from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+
+            if (!roomCode) {
+                alert('No room code provided. Redirecting to lobby...');
+                window.location.href = '/index.html';
+                return;
+            }
+
             // Connect to server
             socketClient.connect();
 
             // Initialize game components
             const board = new Board('game-board');
-            const game = new Game(board, socketClient);
             const chat = new Chat('chat-screen', 'chat-input', 'send-chat-btn', socketClient);
+            const game = new Game(board, socketClient, chat);
+
+            // Store room code in game
+            game.roomCode = roomCode;
 
             // Make game accessible globally for debugging
             window.gameInstance = game;
             window.boardInstance = board;
             window.chatInstance = chat;
 
-            // Get room code from URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const roomCode = urlParams.get('room');
-
-            if (roomCode) {
-                console.log('Auto-joining room:', roomCode);
-            } else {
-                console.warn('No room code provided in URL');
-            }
+            console.log('Game initialized for room:', roomCode);
         });
     </script>
 </body>

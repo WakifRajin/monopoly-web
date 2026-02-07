@@ -4,9 +4,10 @@
  */
 
 class Game {
-    constructor(board, socketClient) {
+    constructor(board, socketClient, chat = null) {
         this.board = board;
         this.socket = socketClient;
+        this.chat = chat;
         this.gameState = null;
         this.currentPlayerId = null;
         this.roomCode = null;
@@ -86,10 +87,16 @@ class Game {
 
         this.socket.on('player-joined', (data) => {
             this.log(`${data.player.name} joined the game`);
+            if (this.chat) {
+                this.chat.displayNotification(`${data.player.name} joined the game`, 'join');
+            }
         });
 
         this.socket.on('player-left', (data) => {
             this.log(`A player left the game`);
+            if (this.chat) {
+                this.chat.displayNotification('A player left the game', 'leave');
+            }
         });
 
         // Game events
