@@ -56,8 +56,8 @@ class Chat {
         }
 
         // Validate message length
-        if (message.length > 200) {
-            this.displaySystemMessage('Message too long (max 200 characters)');
+        if (message.length > CONSTANTS.MAX_CHAT_MESSAGE_LENGTH) {
+            this.displaySystemMessage(`Message too long (max ${CONSTANTS.MAX_CHAT_MESSAGE_LENGTH} characters)`);
             return;
         }
 

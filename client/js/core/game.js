@@ -166,7 +166,7 @@ class Game {
      * Handle dice rolled event
      */
     handleDiceRolled(data) {
-        const { dice, player, newPosition, game } = data;
+        const { dice, playerId, newPosition, game } = data;
         
         // Update dice display
         this.dice1.dataset.value = dice[0];
@@ -175,10 +175,16 @@ class Game {
         const isDouble = dice[0] === dice[1];
         const total = dice[0] + dice[1];
         
-        this.log(`${player.name} rolled ${dice[0]} and ${dice[1]} (Total: ${total})${isDouble ? ' - DOUBLES!' : ''}`);
+        // Find player by ID
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        this.log(`${playerName} rolled ${dice[0]} and ${dice[1]} (Total: ${total})${isDouble ? ' - DOUBLES!' : ''}`);
         
         // Update player position
-        this.board.updatePlayerPosition(player.id, newPosition, player.color, player.token);
+        if (player) {
+            this.board.updatePlayerPosition(player.id, newPosition, player.color, player.token);
+        }
         this.board.highlightSpace(newPosition);
         
         // Update game state
@@ -197,12 +203,18 @@ class Game {
      * Handle property bought event
      */
     handlePropertyBought(data) {
-        const { player, property, game } = data;
+        const { playerId, property, game } = data;
         
-        this.log(`${player.name} bought ${property.name} for ৳${property.price}`);
+        // Find player by ID
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        this.log(`${playerName} bought ${property.name} for ৳${property.price}`);
         
         // Update board display
-        this.board.updatePropertyOwnership(property.index, player.color);
+        if (player) {
+            this.board.updatePropertyOwnership(property.index, player.color);
+        }
         
         // Update game state
         this.updateGameState(game);
@@ -220,9 +232,13 @@ class Game {
      * Handle turn changed event
      */
     handleTurnChanged(data) {
-        const { game, currentPlayer } = data;
+        const { game, currentPlayerId } = data;
         
-        this.log(`${currentPlayer.name}'s turn`);
+        // Find current player
+        const currentPlayer = game.players.find(p => p.id === currentPlayerId);
+        const playerName = currentPlayer ? currentPlayer.name : 'Unknown';
+        
+        this.log(`${playerName}'s turn`);
         
         // Update game state
         this.updateGameState(game);
@@ -313,13 +329,17 @@ class Game {
      * Handle building built event
      */
     handleBuildingBuilt(data) {
-        const { player, property, houses, hotel, game } = data;
+        const { playerId, property, game } = data;
         
-        const buildingType = hotel ? 'hotel' : `${houses} house${houses > 1 ? 's' : ''}`;
-        this.log(`${player.name} built ${buildingType} on ${property.name}`);
+        // Find player by ID
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        const buildingType = property.hotels > 0 ? 'hotel' : `${property.houses} house${property.houses > 1 ? 's' : ''}`;
+        this.log(`${playerName} built ${buildingType} on ${property.name}`);
         
         // Update board display
-        this.board.updateBuildings(property.index, houses, hotel);
+        this.board.updateBuildings(property.index, property.houses || 0, property.hotels || 0);
         
         // Update game state
         this.updateGameState(game);
@@ -329,9 +349,14 @@ class Game {
      * Handle property mortgaged event
      */
     handlePropertyMortgaged(data) {
-        const { player, property, amount, game } = data;
+        const { playerId, property, game } = data;
         
-        this.log(`${player.name} mortgaged ${property.name} for ৳${amount}`);
+        // Find player by ID
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        const mortgageValue = Math.floor(property.price / 2);
+        this.log(`${playerName} mortgaged ${property.name} for ৳${mortgageValue}`);
         
         // Update game state
         this.updateGameState(game);
@@ -341,9 +366,14 @@ class Game {
      * Handle property unmortgaged event
      */
     handlePropertyUnmortgaged(data) {
-        const { player, property, amount, game } = data;
+        const { playerId, property, game } = data;
         
-        this.log(`${player.name} unmortgaged ${property.name} for ৳${amount}`);
+        // Find player by ID
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        const unmortgageValue = Math.floor(property.price / 2 * 1.1);
+        this.log(`${playerName} unmortgaged ${property.name} for ৳${unmortgageValue}`);
         
         // Update game state
         this.updateGameState(game);
@@ -467,11 +497,13 @@ class Game {
         const isMyTurn = this.isMyTurn(game);
         const currentPlayer = this.getCurrentPlayer();
 
-        // Roll dice button - only if it's my turn and I haven't rolled yet
-        this.rollDiceBtn.disabled = !isMyTurn || game.dice[0] > 0;
+        // Roll dice button - only if it's my turn and dice haven't been rolled yet
+        // Check if dice are both zero (initial state) or if turn actions are not completed
+        const hasRolled = game.dice && game.dice.length === 2 && (game.dice[0] !== 0 || game.dice[1] !== 0);
+        this.rollDiceBtn.disabled = !isMyTurn || hasRolled;
 
-        // End turn button - only if it's my turn and I've rolled
-        this.endTurnBtn.disabled = !isMyTurn || game.dice[0] === 0;
+        // End turn button - only if it's my turn and dice have been rolled
+        this.endTurnBtn.disabled = !isMyTurn || !hasRolled;
 
         // Buy property button
         if (isMyTurn && currentPlayer) {

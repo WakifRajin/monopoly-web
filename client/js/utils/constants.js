@@ -14,6 +14,9 @@ const CONSTANTS = {
     DEFAULT_GO_SALARY: 2000,
     DEFAULT_JAIL_FINE: 500,
     
+    // Chat settings
+    MAX_CHAT_MESSAGE_LENGTH: 200,
+    
     // Player colors
     PLAYER_COLORS: ['#FF0000', '#0000FF', '#008000', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080'],
     
