@@ -356,10 +356,34 @@ class GamePersistence {
             return;
         }
         
-        this.showStatus('load', 'Game loaded! Refresh page or rejoin room to continue.', 'success');
+        // Send load request to server
+        this.socket.socket.emit('load-game', { gameState: gameState });
         
-        // TODO: Implement actual game state restoration
-        // This would require server-side support to restore game state
+        // Listen for load response
+        this.socket.socket.once('game-loaded', (data) => {
+            if (data.success) {
+                this.showStatus('load', 'Game loaded successfully! Updating game state...', 'success');
+                this.hideModal();
+                
+                // Update the game instance with loaded state
+                if (window.gameInstance) {
+                    window.gameInstance.updateGameState(data.game);
+                }
+            } else {
+                this.showStatus('load', 'Failed to load game state', 'error');
+            }
+        });
+        
+        // Handle errors
+        const errorHandler = (error) => {
+            this.showStatus('load', `Error: ${error.message}`, 'error');
+        };
+        this.socket.socket.once('error', errorHandler);
+        
+        // Clean up error handler after 5 seconds
+        setTimeout(() => {
+            this.socket.socket.off('error', errorHandler);
+        }, 5000);
     }
 
     /**
