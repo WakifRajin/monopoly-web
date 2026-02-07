@@ -191,7 +191,7 @@ class SocketService {
 
             const currentPlayer = game.getCurrentPlayer();
             // Fix: Compare player IDs instead of socketIds to avoid stale socketId issues
-            // result.player is the player object returned by getPlayerBySocketId() above (line 182)
+            // result.player is the player object returned by getPlayerBySocketId() earlier in this function
             if (currentPlayer.id !== result.player.id) {
                 throw new Error('Not your turn');
             }
