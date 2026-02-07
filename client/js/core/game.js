@@ -136,17 +136,22 @@ class Game {
 
         // Game events
         this.socket.on('game-started', (data) => {
-            this.gameState = data.game;
-            this.log('Game started!');
-            this.updateGameState(data.game);
+            console.log('🎮 Game started event received:', data);
+            if (data && data.game) {
+                this.initializeFromServer(data.game);
+            } else {
+                console.error('❌ game-started event missing game data');
+            }
         });
 
         // Handle game state response (when requesting state on page load)
         this.socket.on('game-state', (data) => {
-            console.log('Game state received, initializing...');
-            this.gameState = data.game;
-            this.log('Game state loaded');
-            this.updateGameState(data.game);
+            console.log('📦 Game state event received:', data);
+            if (data && data.game) {
+                this.initializeFromServer(data.game);
+            } else {
+                console.error('❌ game-state event missing game data');
+            }
         });
 
         this.socket.on('dice-rolled', (data) => {
@@ -509,46 +514,109 @@ class Game {
     }
 
     /**
+     * Initialize game from server state (first load)
+     */
+    initializeFromServer(gameState) {
+        console.log('🎮 Initializing game from server state:', gameState);
+        
+        if (!gameState) {
+            console.error('❌ No game state received');
+            this.log('Failed to load game state');
+            return;
+        }
+        
+        try {
+            // Validate we have players
+            if (!gameState.players || gameState.players.length === 0) {
+                throw new Error('No players in game state');
+            }
+            
+            console.log(`📋 Loading ${gameState.players.length} players...`);
+            gameState.players.forEach((player, index) => {
+                console.log(`  ✓ Player ${index + 1}: ${player.name} (${player.color || CONSTANTS.PLAYER_COLORS[index]})`);
+            });
+            
+            // Use existing updateGameState method to handle the state
+            this.updateGameState(gameState);
+            
+            // Add welcome log message
+            this.log('🎲 Game started! Good luck!');
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            if (currentPlayer) {
+                this.log(`${currentPlayer.name}'s turn`);
+            }
+            
+            console.log('✅ Game initialization complete!');
+            
+        } catch (error) {
+            console.error('❌ Error initializing game:', error);
+            this.log(`Failed to initialize: ${error.message}`);
+        }
+    }
+
+    /**
      * Update entire game state
      */
     updateGameState(game) {
-        this.gameState = game;
+        if (!game) {
+            console.error('❌ updateGameState called with null/undefined game');
+            return;
+        }
         
-        // Update player info panels
-        this.updatePlayerPanels(game.players, game.currentPlayerIndex);
-        
-        // Update player positions on board
-        game.players.forEach(player => {
-            this.board.updatePlayerPosition(
-                player.id,
-                player.position,
-                player.color || CONSTANTS.PLAYER_COLORS[game.players.indexOf(player)],
-                player.token || CONSTANTS.PLAYER_TOKENS[game.players.indexOf(player)]
-            );
-        });
-
-        // Update turn indicator
-        const currentPlayer = game.players[game.currentPlayerIndex];
-        this.turnIndicator.textContent = `${currentPlayer.name}'s Turn`;
-
-        // Update button states
-        this.updateButtonStates(game);
-
-        // Update property ownerships
-        game.board.forEach((space, index) => {
-            if (space.owner) {
-                const owner = game.players.find(p => p.id === space.owner);
-                if (owner) {
-                    const ownerIndex = game.players.indexOf(owner);
-                    this.board.updatePropertyOwnership(index, CONSTANTS.PLAYER_COLORS[ownerIndex]);
+        try {
+            this.gameState = game;
+            
+            // Validate required data
+            if (!game.players || game.players.length === 0) {
+                console.error('❌ Game state has no players');
+                return;
+            }
+            
+            // Update player info panels
+            this.updatePlayerPanels(game.players, game.currentPlayerIndex);
+            
+            // Update player positions on board
+            game.players.forEach(player => {
+                if (player && player.id !== undefined) {
+                    this.board.updatePlayerPosition(
+                        player.id,
+                        player.position || 0,
+                        player.color || CONSTANTS.PLAYER_COLORS[game.players.indexOf(player)],
+                        player.token || CONSTANTS.PLAYER_TOKENS[game.players.indexOf(player)]
+                    );
                 }
+            });
+
+            // Update turn indicator
+            const currentPlayer = game.players[game.currentPlayerIndex];
+            if (currentPlayer && this.turnIndicator) {
+                this.turnIndicator.textContent = `${currentPlayer.name}'s Turn`;
             }
 
-            // Update buildings
-            if (space.houses || space.hotels) {
-                this.board.updateBuildings(index, space.houses || 0, space.hotels || 0);
+            // Update button states
+            this.updateButtonStates(game);
+
+            // Update property ownerships
+            if (game.board && Array.isArray(game.board)) {
+                game.board.forEach((space, index) => {
+                    if (space.owner) {
+                        const owner = game.players.find(p => p.id === space.owner);
+                        if (owner) {
+                            const ownerIndex = game.players.indexOf(owner);
+                            this.board.updatePropertyOwnership(index, CONSTANTS.PLAYER_COLORS[ownerIndex]);
+                        }
+                    }
+
+                    // Update buildings
+                    if (space.houses || space.hotels) {
+                        this.board.updateBuildings(index, space.houses || 0, space.hotels || 0);
+                    }
+                });
             }
-        });
+        } catch (error) {
+            console.error('❌ Error updating game state:', error);
+            this.log(`Error updating game: ${error.message}`);
+        }
     }
 
     /**
