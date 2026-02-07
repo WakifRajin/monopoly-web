@@ -688,10 +688,11 @@ class SocketService {
                 // Fallback: No playerId provided, try to find a disconnected player to reconnect
                 logger.warn(`⚠ No playerId provided in request-game-state for room ${roomCode}, attempting fallback reconnection`);
                 
+                // Get room (reuse from earlier if already fetched)
                 const room = this.roomController.getRoom(roomCode);
-                if (room) {
+                if (room && game) {
                     // Find disconnected players in the room
-                    const disconnectedPlayers = room.players.filter(p => p.disconnected === true);
+                    const disconnectedPlayers = room.players.filter(p => p.disconnected);
                     logger.info(`Found ${disconnectedPlayers.length} disconnected player(s) in room ${roomCode}`);
                     
                     if (disconnectedPlayers.length > 0) {
@@ -701,10 +702,11 @@ class SocketService {
                         if (!existingPlayer && disconnectedPlayers.length === 1) {
                             // Only one disconnected player, safely reconnect them
                             const player = disconnectedPlayers[0];
+                            
+                            // Update both room and game models atomically
                             player.socketId = socket.id;
                             player.disconnected = false;
                             
-                            // Also update in game model
                             const gamePlayer = game.players.find(p => p.id === player.id);
                             if (gamePlayer) {
                                 gamePlayer.socketId = socket.id;
@@ -721,7 +723,12 @@ class SocketService {
                         logger.info(`No disconnected players found in room ${roomCode}`);
                     }
                 } else {
-                    logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
+                    if (!room) {
+                        logger.warn(`⚠ Room ${roomCode} not found for fallback reconnection`);
+                    }
+                    if (!game) {
+                        logger.warn(`⚠ Game ${roomCode} not available for fallback reconnection`);
+                    }
                 }
             }
 
