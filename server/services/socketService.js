@@ -679,12 +679,9 @@ class SocketService {
                     logger.warn(`⚠ Player ${playerId} not found in game ${roomCode} player list`);
                 }
 
-                // Fallback: If playerId didn't match, try to match by socket being in the room
-                // This handles edge cases where playerId might be undefined/null
-                if (!playerUpdated && game.players.length > 0) {
-                    logger.warn(`⚠ Attempting fallback player matching for socket ${socket.id}`);
-                    // This is a last resort - we can't reliably match without playerId
-                    // Log the issue but don't fail
+                // If playerId didn't match, log the error
+                // We can't reliably match players without a valid playerId
+                if (!playerUpdated) {
                     logger.error(`❌ Could not update player socketId - playerId ${playerId} not found in room or game`);
                 }
             } else {

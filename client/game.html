@@ -523,7 +523,7 @@
                 if (data.state === CONSTANTS.CONNECTION_STATES.CONNECTED) {
                     console.log('Socket connected, requesting game state for room:', roomCode);
                     // Request current game state from server
-                    socketClient.socket.emit('request-game-state', { roomCode, playerId });
+                    socketClient.requestGameState(roomCode, playerId);
                 }
             });
 
@@ -531,7 +531,7 @@
             // (socketClient may have already connected before this listener was registered)
             if (socketClient.connected || (socketClient.socket && socketClient.socket.connected)) {
                 console.log('Socket already connected, requesting game state immediately for room:', roomCode);
-                socketClient.socket.emit('request-game-state', { roomCode, playerId });
+                socketClient.requestGameState(roomCode, playerId);
             }
 
             // Handle game state response
