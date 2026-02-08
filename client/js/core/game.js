@@ -224,21 +224,11 @@ class Game {
         
         // Bankruptcy and game end
         this.socket.on('player-bankrupt', (data) => {
-            if (data.creditorId === this.currentPlayerId) {
-                this.trackStats('player-bankrupt', {
-                    playerId: this.currentPlayerId,
-                    creditorId: data.creditorId
-                });
-            }
+            this.handlePlayerBankrupt(data);
         });
         
         this.socket.on('game-ended', (data) => {
-            const duration = data.duration || 0;
-            this.trackStats('game-ended', {
-                playerId: this.currentPlayerId,
-                winnerId: data.winnerId,
-                duration: duration
-            });
+            this.handleGameEnded(data);
         });
     }
 
@@ -411,19 +401,33 @@ class Game {
         // Create menu options
         const buttons = currentPlayer.properties.map(propIndex => {
             const prop = this.board.getSpaceData(propIndex);
-            const mortgageValue = Math.floor(prop.price / 2);
-            return {
-                text: `${prop.name} (৳${mortgageValue})`,
-                action: () => {
-                    this.socket.mortgageProperty(propIndex);
-                    this.notificationModal.classList.add('hidden');
-                }
-            };
+            
+            if (prop.mortgaged) {
+                // Show unmortgage option (cost is 55% of property price)
+                const unmortgageValue = Math.floor(prop.price / 2 * 1.1);
+                return {
+                    text: `Unmortgage ${prop.name} (৳${unmortgageValue})`,
+                    action: () => {
+                        this.socket.unmortgageProperty(propIndex);
+                        this.notificationModal.classList.add('hidden');
+                    }
+                };
+            } else {
+                // Show mortgage option (receive 50% of property price)
+                const mortgageValue = Math.floor(prop.price / 2);
+                return {
+                    text: `Mortgage ${prop.name} (৳${mortgageValue})`,
+                    action: () => {
+                        this.socket.mortgageProperty(propIndex);
+                        this.notificationModal.classList.add('hidden');
+                    }
+                };
+            }
         });
 
         buttons.push({ text: 'Cancel', action: 'close' });
 
-        this.showNotification('Select property to mortgage:', buttons);
+        this.showNotification('Select property to mortgage/unmortgage:', buttons);
     }
 
     /**
@@ -758,6 +762,109 @@ class Game {
         if (modal) {
             modal.classList.add('hidden');
         }
+    }
+
+    /**
+     * Handle player bankruptcy event
+     */
+    handlePlayerBankrupt(data) {
+        const { playerId, creditorId, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        if (playerId === this.currentPlayerId) {
+            // Current player went bankrupt
+            this.showNotification(
+                `You are bankrupt! You have been eliminated from the game.`,
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log('You went bankrupt and are out of the game');
+            
+            // Track stats
+            this.trackStats('player-bankrupt', {
+                playerId: this.currentPlayerId,
+                creditorId: creditorId
+            });
+        } else if (creditorId === this.currentPlayerId) {
+            // Current player bankrupted another player
+            this.showNotification(
+                `${playerName} is bankrupt! Their properties have been transferred to you.`,
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log(`${playerName} went bankrupt - their properties are now yours!`);
+            
+            // Track stats
+            this.trackStats('bankrupted-player', {
+                playerId: this.currentPlayerId,
+                bankruptedPlayerId: playerId
+            });
+        } else {
+            // Another player went bankrupt
+            this.log(`${playerName} went bankrupt and is out of the game`);
+        }
+    }
+
+    /**
+     * Handle game ended event
+     */
+    handleGameEnded(data) {
+        const { winnerId, winnerName, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        // Disable all action buttons
+        if (this.rollDiceBtn) this.rollDiceBtn.disabled = true;
+        if (this.endTurnBtn) this.endTurnBtn.disabled = true;
+        if (this.buyPropertyBtn) this.buyPropertyBtn.disabled = true;
+        if (this.buildBtn) this.buildBtn.disabled = true;
+        if (this.mortgageBtn) this.mortgageBtn.disabled = true;
+        if (this.tradeBtn) this.tradeBtn.disabled = true;
+        
+        // Show winner announcement
+        if (winnerId === this.currentPlayerId) {
+            this.showNotification(
+                `🎉 Congratulations! You won the game! 🎉`,
+                [
+                    { 
+                        text: 'Return to Lobby', 
+                        action: () => {
+                            window.location.href = '/index.html';
+                        }
+                    }
+                ]
+            );
+            this.log('🎉 You won the game! Congratulations!');
+            
+            // Track stats
+            this.trackStats('game-won', {
+                playerId: this.currentPlayerId
+            });
+        } else {
+            this.showNotification(
+                `Game Over! ${winnerName} won the game!`,
+                [
+                    { 
+                        text: 'Return to Lobby', 
+                        action: () => {
+                            window.location.href = '/index.html';
+                        }
+                    }
+                ]
+            );
+            this.log(`Game Over! ${winnerName} won!`);
+        }
+        
+        // Track stats for game ended
+        this.trackStats('game-ended', {
+            playerId: this.currentPlayerId,
+            winnerId: winnerId,
+            duration: game.turn || 0
+        });
     }
 
     /**
