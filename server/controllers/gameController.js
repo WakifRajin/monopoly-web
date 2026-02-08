@@ -156,6 +156,177 @@ class GameController {
     }
 
     /**
+     * Process landing on a space after dice roll or card movement
+     * @param {string} roomCode - Room code
+     * @param {string} playerId - Player ID
+     * @param {number} diceTotal - Total dice roll (for utility rent)
+     * @returns {Object} Landing result with action type and details
+     */
+    processLanding(roomCode, playerId, diceTotal = 0) {
+        const game = this.getGame(roomCode);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        const player = game.players.find(p => p.id === playerId);
+        if (!player) {
+            throw new Error('Player not found');
+        }
+
+        const space = game.board[player.position];
+        if (!space) {
+            return { action: 'none' };
+        }
+
+        const result = {
+            action: space.type,
+            space: space,
+            playerId: player.id,
+            position: player.position
+        };
+
+        switch (space.type) {
+            case 'property':
+            case 'station':
+            case 'utility':
+                if (space.owner === null || space.owner === undefined) {
+                    // Unowned property - offer to buy
+                    result.action = 'property-available';
+                    result.propertyName = space.name;
+                    result.propertyPrice = space.price;
+                } else if (space.owner !== player.id) {
+                    // Owned by another player - charge rent
+                    const owner = game.players.find(p => p.id === space.owner);
+                    if (owner && !owner.bankrupt && !space.mortgaged) {
+                        const rentAmount = game.calculateRent(space, diceTotal);
+                        
+                        // Deduct rent from player
+                        const actualRent = Math.min(player.money, rentAmount);
+                        player.money -= actualRent;
+                        owner.money += actualRent;
+                        
+                        result.action = 'rent-paid';
+                        result.rentAmount = actualRent;
+                        result.ownerId = owner.id;
+                        result.ownerName = owner.name;
+                        result.propertyName = space.name;
+                        
+                        game.addHistory({
+                            type: 'rent_paid',
+                            playerId: player.id,
+                            ownerId: owner.id,
+                            amount: actualRent,
+                            property: space.name
+                        });
+                    } else {
+                        result.action = 'none';
+                    }
+                } else {
+                    // Player owns the property
+                    result.action = 'own-property';
+                }
+                break;
+
+            case 'chance':
+                const chanceCard = game.drawChanceCard();
+                const chanceResult = game.executeCardAction(player, chanceCard);
+                result.action = 'card-drawn';
+                result.cardType = 'chance';
+                result.cardText = chanceCard.text;
+                result.cardAction = chanceResult.action;
+                result.message = chanceResult.message;
+                result.requiresMovement = chanceResult.requiresMovement;
+                result.newPosition = chanceResult.newPosition;
+                result.moneyChange = chanceResult.moneyChange;
+                result.rentMultiplier = chanceResult.rentMultiplier;
+                
+                game.addHistory({
+                    type: 'card_drawn',
+                    playerId: player.id,
+                    cardType: 'chance',
+                    cardText: chanceCard.text
+                });
+                break;
+
+            case 'community-chest':
+                const communityCard = game.drawCommunityChestCard();
+                const communityResult = game.executeCardAction(player, communityCard);
+                result.action = 'card-drawn';
+                result.cardType = 'community-chest';
+                result.cardText = communityCard.text;
+                result.cardAction = communityResult.action;
+                result.message = communityResult.message;
+                result.requiresMovement = communityResult.requiresMovement;
+                result.newPosition = communityResult.newPosition;
+                result.moneyChange = communityResult.moneyChange;
+                result.rentMultiplier = communityResult.rentMultiplier;
+                
+                game.addHistory({
+                    type: 'card_drawn',
+                    playerId: player.id,
+                    cardType: 'community-chest',
+                    cardText: communityCard.text
+                });
+                break;
+
+            case 'tax':
+                const taxAmount = Math.min(player.money, space.amount);
+                player.money -= taxAmount;
+                
+                // Add to free parking if enabled
+                if (game.settings.freeParkingJackpot) {
+                    game.freeParkingJackpot += taxAmount;
+                }
+                
+                result.action = 'tax-paid';
+                result.taxName = space.name;
+                result.taxAmount = taxAmount;
+                
+                game.addHistory({
+                    type: 'tax_paid',
+                    playerId: player.id,
+                    amount: taxAmount,
+                    taxName: space.name
+                });
+                break;
+
+            case 'go-to-jail':
+                player.position = 10; // Jail position
+                player.inJail = true;
+                player.jailTurns = 0;
+                
+                result.action = 'go-to-jail';
+                
+                game.addHistory({
+                    type: 'go_to_jail',
+                    playerId: player.id,
+                    reason: 'landed_on_space'
+                });
+                break;
+
+            case 'free-parking':
+                if (game.settings.freeParkingJackpot && game.freeParkingJackpot > 0) {
+                    player.money += game.freeParkingJackpot;
+                    result.action = 'free-parking-jackpot';
+                    result.jackpotAmount = game.freeParkingJackpot;
+                    game.freeParkingJackpot = 0;
+                } else {
+                    result.action = 'free-parking';
+                }
+                break;
+
+            case 'go':
+            case 'jail':
+            case 'corner':
+            default:
+                result.action = 'none';
+                break;
+        }
+
+        return result;
+    }
+
+    /**
      * Handle property purchase
      */
     buyProperty(roomCode, playerId) {

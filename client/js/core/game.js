@@ -178,6 +178,31 @@ class Game {
             this.handlePropertyUnmortgaged(data);
         });
 
+        // Landing events
+        this.socket.on('property-available', (data) => {
+            this.handlePropertyAvailable(data);
+        });
+
+        this.socket.on('rent-paid', (data) => {
+            this.handleRentPaid(data);
+        });
+
+        this.socket.on('card-drawn', (data) => {
+            this.handleCardDrawn(data);
+        });
+
+        this.socket.on('tax-paid', (data) => {
+            this.handleTaxPaid(data);
+        });
+
+        this.socket.on('go-to-jail', (data) => {
+            this.handleGoToJail(data);
+        });
+
+        this.socket.on('free-parking-jackpot', (data) => {
+            this.handleFreeParkingJackpot(data);
+        });
+
         this.socket.on('trade-offer-received', (data) => {
             this.handleTradeOfferReceived(data);
         });
@@ -405,9 +430,14 @@ class Game {
      * Show trade menu
      */
     showTradeMenu() {
-        this.showNotification('Trading feature coming soon!', [
-            { text: 'OK', action: 'close' }
-        ]);
+        // Use the global trade instance if available
+        if (window.tradeInstance) {
+            window.tradeInstance.showTradeModal();
+        } else {
+            this.showNotification('Trade system initializing...', [
+                { text: 'OK', action: 'close' }
+            ]);
+        }
     }
 
     /**
@@ -511,6 +541,223 @@ class Game {
         this.trackStats('trade-completed', {
             playerId: this.currentPlayerId
         });
+    }
+
+    /**
+     * Handle property available event (unowned property landed on)
+     */
+    handlePropertyAvailable(data) {
+        const { playerId, property, game } = data;
+        
+        // Update game state first
+        this.updateGameState(game);
+        
+        // Only show prompt to the current player
+        if (playerId === this.currentPlayerId) {
+            this.showNotification(
+                `Would you like to buy ${property.name} for ৳${property.price}?`,
+                [
+                    { 
+                        text: 'Buy', 
+                        action: () => {
+                            this.socket.buyProperty();
+                            this.hideNotification();
+                        }
+                    },
+                    { 
+                        text: 'Decline', 
+                        action: () => {
+                            this.hideNotification();
+                        }
+                    }
+                ]
+            );
+        } else {
+            const player = game.players.find(p => p.id === playerId);
+            const playerName = player ? player.name : 'Player';
+            this.log(`${playerName} landed on unowned ${property.name}`);
+        }
+    }
+
+    /**
+     * Handle rent paid event
+     */
+    handleRentPaid(data) {
+        const { payerId, ownerId, ownerName, propertyName, amount, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        // Show notification based on whether current player is involved
+        if (payerId === this.currentPlayerId) {
+            this.showNotification(
+                `You paid ৳${amount} rent to ${ownerName} for ${propertyName}`,
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log(`You paid ৳${amount} rent to ${ownerName}`);
+        } else if (ownerId === this.currentPlayerId) {
+            const payer = game.players.find(p => p.id === payerId);
+            const payerName = payer ? payer.name : 'Player';
+            this.showNotification(
+                `${payerName} paid you ৳${amount} rent for ${propertyName}`,
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log(`${payerName} paid you ৳${amount} rent`);
+        } else {
+            const payer = game.players.find(p => p.id === payerId);
+            const payerName = payer ? payer.name : 'Player';
+            this.log(`${payerName} paid ৳${amount} rent to ${ownerName}`);
+        }
+        
+        // Track stats
+        if (ownerId === this.currentPlayerId) {
+            this.trackStats('rent-collected', {
+                playerId: this.currentPlayerId,
+                amount: amount,
+                propertyName: propertyName
+            });
+        }
+    }
+
+    /**
+     * Handle card drawn event
+     */
+    handleCardDrawn(data) {
+        const { playerId, cardType, cardText, message, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        const cardTypeDisplay = cardType === 'chance' ? 'Chance' : 'Community Chest';
+        this.log(`${playerName} drew ${cardTypeDisplay}: "${cardText}"`);
+        
+        // Show notification to all players
+        this.showNotification(
+            `${cardTypeDisplay} Card: ${cardText}`,
+            [{ text: 'OK', action: () => this.hideNotification() }]
+        );
+    }
+
+    /**
+     * Handle tax paid event
+     */
+    handleTaxPaid(data) {
+        const { playerId, taxName, amount, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        if (playerId === this.currentPlayerId) {
+            this.showNotification(
+                `You paid ৳${amount} in ${taxName}`,
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log(`You paid ৳${amount} in ${taxName}`);
+        } else {
+            this.log(`${playerName} paid ৳${amount} in ${taxName}`);
+        }
+    }
+
+    /**
+     * Handle go to jail event
+     */
+    handleGoToJail(data) {
+        const { playerId, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        if (playerId === this.currentPlayerId) {
+            this.showNotification(
+                'Go directly to Jail! Do not pass Go, do not collect ৳2000.',
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log('You went to Jail!');
+        } else {
+            this.log(`${playerName} went to Jail!`);
+        }
+        
+        // Update player position on board
+        if (player) {
+            this.board.updatePlayerPosition(player.id, 10, player.color, player.token);
+        }
+    }
+
+    /**
+     * Handle free parking jackpot event
+     */
+    handleFreeParkingJackpot(data) {
+        const { playerId, amount, game } = data;
+        
+        // Update game state
+        this.updateGameState(game);
+        
+        const player = game.players.find(p => p.id === playerId);
+        const playerName = player ? player.name : 'Player';
+        
+        if (playerId === this.currentPlayerId) {
+            this.showNotification(
+                `You collected ৳${amount} from Free Parking!`,
+                [{ text: 'OK', action: () => this.hideNotification() }]
+            );
+            this.log(`You collected ৳${amount} from Free Parking!`);
+        } else {
+            this.log(`${playerName} collected ৳${amount} from Free Parking`);
+        }
+    }
+
+    /**
+     * Show notification modal
+     * @param {string} message - Message to display
+     * @param {Array} buttons - Array of button objects {text, action}
+     */
+    showNotification(message, buttons) {
+        const modal = document.getElementById('notification-modal');
+        const messageEl = document.getElementById('notification-message');
+        const buttonsEl = document.getElementById('notification-buttons');
+        
+        if (!modal || !messageEl || !buttonsEl) {
+            console.error('Notification modal elements not found');
+            return;
+        }
+        
+        messageEl.textContent = message;
+        buttonsEl.innerHTML = '';
+        
+        buttons.forEach(btn => {
+            const button = document.createElement('button');
+            button.textContent = btn.text;
+            button.className = 'bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition';
+            button.addEventListener('click', () => {
+                if (typeof btn.action === 'function') {
+                    btn.action();
+                } else if (btn.action === 'close') {
+                    this.hideNotification();
+                }
+            });
+            buttonsEl.appendChild(button);
+        });
+        
+        modal.classList.remove('hidden');
+    }
+
+    /**
+     * Hide notification modal
+     */
+    hideNotification() {
+        const modal = document.getElementById('notification-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
     }
 
     /**

@@ -255,6 +255,204 @@ class Game {
     }
 
     /**
+     * Draw a Chance card
+     * @returns {Object} Card object and effects
+     */
+    drawChanceCard() {
+        const card = this.chanceCards[this.chanceCardIndex];
+        this.chanceCardIndex = (this.chanceCardIndex + 1) % this.chanceCards.length;
+        
+        // Reshuffle when we've gone through all cards
+        if (this.chanceCardIndex === 0) {
+            this.chanceCards = this.shuffleCards(this.chanceCards);
+        }
+        
+        return card;
+    }
+
+    /**
+     * Draw a Community Chest card
+     * @returns {Object} Card object and effects
+     */
+    drawCommunityChestCard() {
+        const card = this.communityChestCards[this.communityChestCardIndex];
+        this.communityChestCardIndex = (this.communityChestCardIndex + 1) % this.communityChestCards.length;
+        
+        // Reshuffle when we've gone through all cards
+        if (this.communityChestCardIndex === 0) {
+            this.communityChestCards = this.shuffleCards(this.communityChestCards);
+        }
+        
+        return card;
+    }
+
+    /**
+     * Execute card action and return result
+     * @param {Object} player - The player who drew the card
+     * @param {Object} card - The card to execute
+     * @returns {Object} Result with action taken and any additional data
+     */
+    executeCardAction(player, card) {
+        const result = {
+            action: card.action,
+            message: '',
+            requiresMovement: false,
+            newPosition: null,
+            moneyChange: 0
+        };
+
+        switch (card.action) {
+            case 'add_money':
+                player.money += card.amount;
+                result.message = `${player.name} received ৳${card.amount}.`;
+                result.moneyChange = card.amount;
+                break;
+
+            case 'remove_money':
+                const amountToPay = Math.min(player.money, card.amount);
+                player.money -= amountToPay;
+                result.message = `${player.name} paid ৳${amountToPay}.`;
+                result.moneyChange = -amountToPay;
+                if (amountToPay < card.amount) {
+                    result.message += ` (Could not afford full amount of ৳${card.amount})`;
+                }
+                break;
+
+            case 'move_to':
+                const oldPos = player.position;
+                player.position = card.spaceIndex;
+                result.requiresMovement = true;
+                result.newPosition = card.spaceIndex;
+                result.message = `${player.name} moved to ${this.board[card.spaceIndex]?.name || 'space ' + card.spaceIndex}.`;
+                
+                // Check if passed Go
+                if (card.collectGo && player.position < oldPos) {
+                    const goSalary = this.settings.goSalary || 2000;
+                    player.money += goSalary;
+                    result.message += ` Passed Go and collected ৳${goSalary}.`;
+                    result.moneyChange = goSalary;
+                }
+                break;
+
+            case 'move_relative':
+                const currentPos = player.position;
+                const steps = card.steps || 0;
+                player.position = (currentPos + steps + this.board.length) % this.board.length;
+                result.requiresMovement = true;
+                result.newPosition = player.position;
+                result.message = `${player.name} moved ${Math.abs(steps)} spaces ${steps > 0 ? 'forward' : 'backward'} to ${this.board[player.position]?.name || 'space ' + player.position}.`;
+                break;
+
+            case 'go_to_jail':
+                player.position = 10; // Jail position
+                player.inJail = true;
+                player.jailTurns = 0;
+                result.message = `${player.name} goes to Jail!`;
+                result.requiresMovement = true;
+                result.newPosition = 10;
+                break;
+
+            case 'get_out_of_jail_free':
+                player.getOutOfJailFreeCards = (player.getOutOfJailFreeCards || 0) + 1;
+                result.message = `${player.name} received a 'Get Out of Jail Free' card.`;
+                break;
+
+            case 'pay_players':
+                const otherPlayers = this.players.filter(p => p.id !== player.id && !p.bankrupt);
+                const totalRequired = card.amount * otherPlayers.length;
+                
+                if (player.money >= totalRequired) {
+                    otherPlayers.forEach(otherPlayer => {
+                        player.money -= card.amount;
+                        otherPlayer.money += card.amount;
+                    });
+                    result.message = `${player.name} paid ৳${card.amount} to each player (Total: ৳${totalRequired}).`;
+                    result.moneyChange = -totalRequired;
+                } else {
+                    result.message = `${player.name} cannot afford to pay ৳${totalRequired}!`;
+                }
+                break;
+
+            case 'collect_from_players':
+                let totalCollected = 0;
+                this.players.forEach(otherPlayer => {
+                    if (otherPlayer.id !== player.id && !otherPlayer.bankrupt) {
+                        const amountToCollect = Math.min(otherPlayer.money, card.amount);
+                        otherPlayer.money -= amountToCollect;
+                        player.money += amountToCollect;
+                        totalCollected += amountToCollect;
+                    }
+                });
+                result.message = `${player.name} collected ৳${totalCollected} from other players.`;
+                result.moneyChange = totalCollected;
+                break;
+
+            case 'move_to_nearest':
+                // Find nearest space of specified type
+                let nearestIndex = -1;
+                let minDistance = this.board.length;
+                const currentPosition = player.position;
+                
+                for (let i = 0; i < this.board.length; i++) {
+                    if (this.board[i].type === card.type) {
+                        let distance = (i - currentPosition + this.board.length) % this.board.length;
+                        if (distance === 0) distance = this.board.length;
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestIndex = i;
+                        }
+                    }
+                }
+                
+                if (nearestIndex !== -1) {
+                    const oldPosNearest = player.position;
+                    player.position = nearestIndex;
+                    result.requiresMovement = true;
+                    result.newPosition = nearestIndex;
+                    result.message = `${player.name} moved to nearest ${card.type}: ${this.board[nearestIndex].name}.`;
+                    
+                    // Check if passed Go
+                    if (player.position < oldPosNearest) {
+                        const goSalary = this.settings.goSalary || 2000;
+                        player.money += goSalary;
+                        result.message += ` Passed Go and collected ৳${goSalary}.`;
+                        result.moneyChange = goSalary;
+                    }
+                    
+                    // Store rent multiplier for later processing
+                    result.rentMultiplier = card.rentMultiplier || 1;
+                }
+                break;
+
+            case 'repairs':
+                let totalCost = 0;
+                this.board.forEach(space => {
+                    if (space.owner === player.id) {
+                        if (space.houses) {
+                            totalCost += space.houses * card.houseCost;
+                        }
+                        if (space.hotels) {
+                            totalCost += space.hotels * card.hotelCost;
+                        }
+                    }
+                });
+                const repairsPaid = Math.min(player.money, totalCost);
+                player.money -= repairsPaid;
+                result.message = `${player.name} paid ৳${repairsPaid} for repairs.`;
+                result.moneyChange = -repairsPaid;
+                if (repairsPaid < totalCost) {
+                    result.message += ` (Could not afford full amount of ৳${totalCost})`;
+                }
+                break;
+
+            default:
+                result.message = `Unknown card action: ${card.action}`;
+        }
+
+        return result;
+    }
+
+    /**
      * Serialize game state for client
      */
     toJSON() {
