@@ -362,7 +362,7 @@ class Game {
         if (!currentPlayer) return;
 
         const buildableProperties = currentPlayer.properties.filter(prop => {
-            const propertyData = this.board.getSpaceData(prop);
+            const propertyData = this.gameState.board[prop];
             return propertyData.type === 'property' && !propertyData.mortgaged;
         });
 
@@ -375,7 +375,7 @@ class Game {
 
         // Create menu options
         const buttons = buildableProperties.map(propIndex => {
-            const prop = this.board.getSpaceData(propIndex);
+            const prop = this.gameState.board[propIndex];
             return {
                 text: `${prop.name} (৳${prop.buildCost})`,
                 action: () => {
@@ -408,11 +408,11 @@ class Game {
 
         // Create menu options
         const buttons = currentPlayer.properties.map(propIndex => {
-            const prop = this.board.getSpaceData(propIndex);
+            const prop = this.gameState.board[propIndex];
             
             if (prop.mortgaged) {
                 // Show unmortgage option (cost is 55% of property price)
-                const unmortgageValue = Math.floor(prop.price / 2 * UNMORTGAGE_INTEREST_RATE);
+                const unmortgageValue = Math.floor(prop.price * 0.55);
                 return {
                     text: `Unmortgage ${prop.name} (৳${unmortgageValue})`,
                     action: () => {
