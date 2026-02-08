@@ -430,9 +430,14 @@ class Game {
      * Show trade menu
      */
     showTradeMenu() {
-        this.showNotification('Trading feature coming soon!', [
-            { text: 'OK', action: 'close' }
-        ]);
+        // Use the global trade instance if available
+        if (window.tradeInstance) {
+            window.tradeInstance.showTradeModal();
+        } else {
+            this.showNotification('Trade system initializing...', [
+                { text: 'OK', action: 'close' }
+            ]);
+        }
     }
 
     /**

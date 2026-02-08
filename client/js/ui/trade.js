@@ -164,11 +164,7 @@ class Trade {
      * Setup UI event listeners
      */
     setupEventListeners() {
-        // Open trade modal
-        const tradeBtn = document.getElementById('trade-btn');
-        if (tradeBtn) {
-            tradeBtn.addEventListener('click', () => this.showTradeModal());
-        }
+        // Note: Trade button click is handled by game.js which calls showTradeModal()
         
         // Close modals
         this.closeBtn.addEventListener('click', () => this.hideTradeModal());
