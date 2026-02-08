@@ -87,6 +87,17 @@ class LobbyUI {
                 e.target.value = e.target.value.toUpperCase();
             });
         }
+        
+        // Max players select - update room settings when changed (only for host)
+        const maxPlayersSelect = Helpers.$('max-players-select');
+        if (maxPlayersSelect) {
+            maxPlayersSelect.addEventListener('change', (e) => {
+                if (this.isHost && this.currentRoom) {
+                    const maxPlayers = parseInt(e.target.value, 10);
+                    socketClient.emit('update-room-settings', { maxPlayers });
+                }
+            });
+        }
     }
 
     setupSocketListeners() {
@@ -103,6 +114,7 @@ class LobbyUI {
         socketClient.on('room-left', (data) => this.handleRoomLeft(data));
         socketClient.on('game-started', (data) => this.handleGameStarted(data));
         socketClient.on('public-rooms-list', (data) => this.handlePublicRoomsList(data));
+        socketClient.on('room-settings-updated', (data) => this.handleRoomSettingsUpdated(data));
     }
 
     showCreateRoomModal() {
@@ -364,6 +376,24 @@ class LobbyUI {
                 </div>
             `;
         }).join('');
+    }
+
+    handleRoomSettingsUpdated(data) {
+        if (!data.room) return;
+        
+        this.currentRoom = data.room;
+        this.updateRoomDisplay();
+        
+        // Update the max players select if it exists (for host)
+        const maxPlayersSelect = Helpers.$('max-players-select');
+        if (maxPlayersSelect && data.room.maxPlayers) {
+            maxPlayersSelect.value = data.room.maxPlayers.toString();
+        }
+        
+        // Only show notification to non-host players
+        if (!this.isHost) {
+            notifications.info(`Room settings updated: Max players set to ${data.room.maxPlayers}`);
+        }
     }
 }
 

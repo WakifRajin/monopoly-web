@@ -197,7 +197,7 @@ class GameController {
                 } else if (space.owner !== player.id) {
                     // Owned by another player - charge rent
                     const owner = game.players.find(p => p.id === space.owner);
-                    if (owner && !owner.bankrupt && !space.mortgaged) {
+                    if (owner && !owner.isBankrupt && !space.mortgaged) {
                         const rentAmount = game.calculateRent(space, diceTotal);
                         
                         // Deduct rent from player
@@ -210,6 +210,12 @@ class GameController {
                         result.ownerId = owner.id;
                         result.ownerName = owner.name;
                         result.propertyName = space.name;
+                        
+                        // Check for bankruptcy after rent payment (money goes negative)
+                        if (player.money < 0) {
+                            result.bankruptcyTriggered = true;
+                            result.creditorId = owner.id;
+                        }
                         
                         game.addHistory({
                             type: 'rent_paid',
@@ -281,6 +287,12 @@ class GameController {
                 result.action = 'tax-paid';
                 result.taxName = space.name;
                 result.taxAmount = taxAmount;
+                
+                // Check for bankruptcy after tax payment (money goes negative)
+                if (player.money < 0) {
+                    result.bankruptcyTriggered = true;
+                    result.creditorId = null; // Bank is creditor for taxes
+                }
                 
                 game.addHistory({
                     type: 'tax_paid',

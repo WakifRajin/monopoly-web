@@ -27,6 +27,7 @@ class SocketService {
             socket.on('player-ready', (data) => this.handlePlayerReady(socket, data));
             socket.on('start-game', () => this.handleStartGame(socket));
             socket.on('get-public-rooms', () => this.handleGetPublicRooms(socket));
+            socket.on('update-room-settings', (data) => this.handleUpdateRoomSettings(socket, data));
 
             // Game events
             socket.on('roll-dice', () => this.handleRollDice(socket));
@@ -259,6 +260,56 @@ class SocketService {
     }
 
     /**
+     * Handle update room settings
+     */
+    handleUpdateRoomSettings(socket, data) {
+        try {
+            const room = this.roomController.getRoomBySocketId(socket.id);
+            if (!room) {
+                throw new Error('Room not found');
+            }
+
+            // Only host can update settings
+            const player = room.getPlayerBySocketId(socket.id);
+            if (!player || player.id !== room.hostId) {
+                throw new Error('Only the host can update room settings');
+            }
+
+            // Can't update settings once game has started
+            if (room.status !== 'waiting') {
+                throw new Error('Cannot update settings after game has started');
+            }
+
+            // Update max players if provided
+            if (data.maxPlayers !== undefined) {
+                const maxPlayers = parseInt(data.maxPlayers, 10);
+                if (maxPlayers < 2 || maxPlayers > 8) {
+                    throw new Error('Max players must be between 2 and 8');
+                }
+                if (maxPlayers < room.players.length) {
+                    throw new Error('Cannot set max players below current player count');
+                }
+                room.maxPlayers = maxPlayers;
+            }
+
+            // Update other settings if provided
+            if (data.startingMoney !== undefined) {
+                room.settings.startingMoney = parseInt(data.startingMoney, 10);
+            }
+
+            // Broadcast updated room to all players in the room
+            this.io.to(room.code).emit('room-settings-updated', {
+                room: room.toJSON()
+            });
+
+            logger.info(`Room settings updated in ${room.code}: maxPlayers=${room.maxPlayers}`);
+        } catch (error) {
+            logger.error('Error updating room settings:', error.message);
+            socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
      * Handle dice roll
      */
     handleRollDice(socket) {
@@ -334,6 +385,7 @@ class SocketService {
                     },
                     game: game.toJSON()
                 });
+                // Property purchase requires decision - no auto-end
                 break;
 
             case 'rent-paid':
@@ -345,6 +397,16 @@ class SocketService {
                     amount: landingResult.rentAmount,
                     game: game.toJSON()
                 });
+                
+                // Check for bankruptcy after rent payment
+                if (landingResult.bankruptcyTriggered) {
+                    this.handleBankruptcy(roomCode, landingResult.playerId, landingResult.creditorId);
+                } else {
+                    // Rent paid, no more actions needed - suggest turn end
+                    this.io.to(roomCode).emit('suggest-turn-end', {
+                        playerId: landingResult.playerId
+                    });
+                }
                 break;
 
             case 'card-drawn':
@@ -367,6 +429,11 @@ class SocketService {
                         );
                         this.handleLandingResult(roomCode, newLandingResult, game);
                     }, 100);
+                } else {
+                    // Card effect applied, no more actions - suggest turn end
+                    this.io.to(roomCode).emit('suggest-turn-end', {
+                        playerId: landingResult.playerId
+                    });
                 }
                 break;
 
@@ -377,12 +444,26 @@ class SocketService {
                     amount: landingResult.taxAmount,
                     game: game.toJSON()
                 });
+                
+                // Check for bankruptcy after tax payment
+                if (landingResult.bankruptcyTriggered) {
+                    this.handleBankruptcy(roomCode, landingResult.playerId, landingResult.creditorId);
+                } else {
+                    // Tax paid, no more actions - suggest turn end
+                    this.io.to(roomCode).emit('suggest-turn-end', {
+                        playerId: landingResult.playerId
+                    });
+                }
                 break;
 
             case 'go-to-jail':
                 this.io.to(roomCode).emit('go-to-jail', {
                     playerId: landingResult.playerId,
                     game: game.toJSON()
+                });
+                // Going to jail ends turn automatically - suggest turn end
+                this.io.to(roomCode).emit('suggest-turn-end', {
+                    playerId: landingResult.playerId
                 });
                 break;
 
@@ -392,14 +473,54 @@ class SocketService {
                     amount: landingResult.jackpotAmount,
                     game: game.toJSON()
                 });
+                // Free parking collected - suggest turn end
+                this.io.to(roomCode).emit('suggest-turn-end', {
+                    playerId: landingResult.playerId
+                });
                 break;
 
             case 'free-parking':
             case 'own-property':
             case 'none':
             default:
-                // No special action needed
+                // No special action needed - these are passive spaces, suggest turn end
+                this.io.to(roomCode).emit('suggest-turn-end', {
+                    playerId: landingResult.playerId
+                });
                 break;
+        }
+    }
+
+    /**
+     * Handle bankruptcy
+     */
+    handleBankruptcy(roomCode, playerId, creditorId = null) {
+        try {
+            const bankruptcyResult = this.gameController.declareBankruptcy(roomCode, playerId, creditorId);
+            const game = this.gameController.getGame(roomCode);
+            
+            // Emit player bankruptcy event
+            this.io.to(roomCode).emit('player-bankrupt', {
+                playerId: playerId,
+                creditorId: creditorId,
+                game: game.toJSON()
+            });
+            
+            logger.info(`Player ${playerId} declared bankruptcy in room ${roomCode}`);
+            
+            // Check if game has ended (only one player left)
+            const activePlayers = game.players.filter(p => !p.isBankrupt);
+            if (activePlayers.length === 1) {
+                const winner = activePlayers[0];
+                this.io.to(roomCode).emit('game-ended', {
+                    winnerId: winner.id,
+                    winnerName: winner.name,
+                    game: game.toJSON()
+                });
+                logger.info(`Game ended in room ${roomCode}, winner: ${winner.name}`);
+            }
+        } catch (error) {
+            logger.error('Error handling bankruptcy:', error.message);
         }
     }
 
