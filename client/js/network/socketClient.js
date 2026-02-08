@@ -137,6 +137,31 @@ class SocketClient {
             this.emit('property-unmortgaged', data);
         });
 
+        // Landing events
+        this.socket.on('property-available', (data) => {
+            this.emit('property-available', data);
+        });
+
+        this.socket.on('rent-paid', (data) => {
+            this.emit('rent-paid', data);
+        });
+
+        this.socket.on('card-drawn', (data) => {
+            this.emit('card-drawn', data);
+        });
+
+        this.socket.on('tax-paid', (data) => {
+            this.emit('tax-paid', data);
+        });
+
+        this.socket.on('go-to-jail', (data) => {
+            this.emit('go-to-jail', data);
+        });
+
+        this.socket.on('free-parking-jackpot', (data) => {
+            this.emit('free-parking-jackpot', data);
+        });
+
         // Trade events
         this.socket.on('trade-offer-received', (data) => {
             this.emit('trade-offer-received', data);

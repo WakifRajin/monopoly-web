@@ -288,7 +288,9 @@ class SocketService {
             }
 
             const rollResult = this.gameController.rollDice(result.room.code);
+            const diceTotal = rollResult.dice[0] + rollResult.dice[1];
             
+            // Emit dice roll result first
             this.io.to(result.room.code).emit('dice-rolled', {
                 dice: rollResult.dice,
                 isDoubles: rollResult.isDoubles,
@@ -299,9 +301,105 @@ class SocketService {
                 goToJail: rollResult.goToJail,
                 game: game.toJSON()
             });
+
+            // Process landing if not going to jail
+            if (!rollResult.goToJail) {
+                const landingResult = this.gameController.processLanding(
+                    result.room.code, 
+                    currentPlayer.id, 
+                    diceTotal
+                );
+                
+                // Handle landing result
+                this.handleLandingResult(result.room.code, landingResult, game);
+            }
         } catch (error) {
             logger.error('Error rolling dice:', error.message);
             socket.emit('error', { message: error.message });
+        }
+    }
+
+    /**
+     * Handle landing result and emit appropriate events
+     */
+    handleLandingResult(roomCode, landingResult, game) {
+        switch (landingResult.action) {
+            case 'property-available':
+                this.io.to(roomCode).emit('property-available', {
+                    playerId: landingResult.playerId,
+                    property: {
+                        name: landingResult.propertyName,
+                        price: landingResult.propertyPrice,
+                        position: landingResult.position
+                    },
+                    game: game.toJSON()
+                });
+                break;
+
+            case 'rent-paid':
+                this.io.to(roomCode).emit('rent-paid', {
+                    payerId: landingResult.playerId,
+                    ownerId: landingResult.ownerId,
+                    ownerName: landingResult.ownerName,
+                    propertyName: landingResult.propertyName,
+                    amount: landingResult.rentAmount,
+                    game: game.toJSON()
+                });
+                break;
+
+            case 'card-drawn':
+                this.io.to(roomCode).emit('card-drawn', {
+                    playerId: landingResult.playerId,
+                    cardType: landingResult.cardType,
+                    cardText: landingResult.cardText,
+                    message: landingResult.message,
+                    game: game.toJSON()
+                });
+
+                // If card requires movement, process the new landing
+                if (landingResult.requiresMovement && landingResult.newPosition !== null) {
+                    // Use setTimeout to allow the card event to be processed first
+                    setTimeout(() => {
+                        const newLandingResult = this.gameController.processLanding(
+                            roomCode,
+                            landingResult.playerId,
+                            0 // No dice roll for card movement
+                        );
+                        this.handleLandingResult(roomCode, newLandingResult, game);
+                    }, 100);
+                }
+                break;
+
+            case 'tax-paid':
+                this.io.to(roomCode).emit('tax-paid', {
+                    playerId: landingResult.playerId,
+                    taxName: landingResult.taxName,
+                    amount: landingResult.taxAmount,
+                    game: game.toJSON()
+                });
+                break;
+
+            case 'go-to-jail':
+                this.io.to(roomCode).emit('go-to-jail', {
+                    playerId: landingResult.playerId,
+                    game: game.toJSON()
+                });
+                break;
+
+            case 'free-parking-jackpot':
+                this.io.to(roomCode).emit('free-parking-jackpot', {
+                    playerId: landingResult.playerId,
+                    amount: landingResult.jackpotAmount,
+                    game: game.toJSON()
+                });
+                break;
+
+            case 'free-parking':
+            case 'own-property':
+            case 'none':
+            default:
+                // No special action needed
+                break;
         }
     }
 
