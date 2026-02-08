@@ -3,6 +3,10 @@
  * Main game logic and state management
  */
 
+// Constants
+const UNMORTGAGE_INTEREST_RATE = 1.1; // 10% interest on unmortgage (110% of mortgage value)
+const AUTO_TURN_END_DELAY_MS = 1500; // Delay before auto-ending turn on passive spaces
+
 class Game {
     constructor(board, socketClient, chat = null) {
         this.board = board;
@@ -408,7 +412,7 @@ class Game {
             
             if (prop.mortgaged) {
                 // Show unmortgage option (cost is 55% of property price)
-                const unmortgageValue = Math.floor(prop.price / 2 * 1.1);
+                const unmortgageValue = Math.floor(prop.price / 2 * UNMORTGAGE_INTEREST_RATE);
                 return {
                     text: `Unmortgage ${prop.name} (৳${unmortgageValue})`,
                     action: () => {
@@ -741,7 +745,7 @@ class Game {
                     this.endTurnBtn.classList.remove('ring-4', 'ring-yellow-300');
                     this.handleEndTurn();
                 }
-            }, 1500);
+            }, AUTO_TURN_END_DELAY_MS);
         }
     }
 

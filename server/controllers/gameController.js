@@ -211,8 +211,8 @@ class GameController {
                         result.ownerName = owner.name;
                         result.propertyName = space.name;
                         
-                        // Check for bankruptcy after rent payment
-                        if (player.money <= 0) {
+                        // Check for bankruptcy after rent payment (money goes negative)
+                        if (player.money < 0) {
                             result.bankruptcyTriggered = true;
                             result.creditorId = owner.id;
                         }
@@ -288,8 +288,8 @@ class GameController {
                 result.taxName = space.name;
                 result.taxAmount = taxAmount;
                 
-                // Check for bankruptcy after tax payment
-                if (player.money <= 0) {
+                // Check for bankruptcy after tax payment (money goes negative)
+                if (player.money < 0) {
                     result.bankruptcyTriggered = true;
                     result.creditorId = null; // Bank is creditor for taxes
                 }

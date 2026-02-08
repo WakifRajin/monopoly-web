@@ -390,7 +390,10 @@ class LobbyUI {
             maxPlayersSelect.value = data.room.maxPlayers.toString();
         }
         
-        notifications.info(`Room settings updated: Max players set to ${data.room.maxPlayers}`);
+        // Only show notification to non-host players
+        if (!this.isHost) {
+            notifications.info(`Room settings updated: Max players set to ${data.room.maxPlayers}`);
+        }
     }
 }
 
