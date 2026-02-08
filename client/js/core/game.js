@@ -4,7 +4,7 @@
  */
 
 // Constants
-const UNMORTGAGE_INTEREST_RATE = 1.1; // 10% interest on unmortgage (110% of mortgage value)
+const UNMORTGAGE_COST_RATE = 0.55; // 55% of property price (50% mortgage value + 10% interest)
 const AUTO_TURN_END_DELAY_MS = 1500; // Delay before auto-ending turn on passive spaces
 
 class Game {
@@ -362,7 +362,7 @@ class Game {
         if (!currentPlayer) return;
 
         const buildableProperties = currentPlayer.properties.filter(prop => {
-            const propertyData = this.board.getSpaceData(prop);
+            const propertyData = this.gameState.board[prop];
             return propertyData.type === 'property' && !propertyData.mortgaged;
         });
 
@@ -375,7 +375,7 @@ class Game {
 
         // Create menu options
         const buttons = buildableProperties.map(propIndex => {
-            const prop = this.board.getSpaceData(propIndex);
+            const prop = this.gameState.board[propIndex];
             return {
                 text: `${prop.name} (৳${prop.buildCost})`,
                 action: () => {
@@ -408,11 +408,11 @@ class Game {
 
         // Create menu options
         const buttons = currentPlayer.properties.map(propIndex => {
-            const prop = this.board.getSpaceData(propIndex);
+            const prop = this.gameState.board[propIndex];
             
             if (prop.mortgaged) {
                 // Show unmortgage option (cost is 55% of property price)
-                const unmortgageValue = Math.floor(prop.price / 2 * UNMORTGAGE_INTEREST_RATE);
+                const unmortgageValue = Math.floor(prop.price * UNMORTGAGE_COST_RATE);
                 return {
                     text: `Unmortgage ${prop.name} (৳${unmortgageValue})`,
                     action: () => {
