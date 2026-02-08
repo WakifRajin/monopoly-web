@@ -4,7 +4,7 @@
  */
 
 // Constants
-const UNMORTGAGE_INTEREST_RATE = 1.1; // 10% interest on unmortgage (110% of mortgage value)
+const UNMORTGAGE_COST_RATE = 0.55; // 55% of property price (50% mortgage value + 10% interest)
 const AUTO_TURN_END_DELAY_MS = 1500; // Delay before auto-ending turn on passive spaces
 
 class Game {
@@ -412,7 +412,7 @@ class Game {
             
             if (prop.mortgaged) {
                 // Show unmortgage option (cost is 55% of property price)
-                const unmortgageValue = Math.floor(prop.price * 0.55);
+                const unmortgageValue = Math.floor(prop.price * UNMORTGAGE_COST_RATE);
                 return {
                     text: `Unmortgage ${prop.name} (৳${unmortgageValue})`,
                     action: () => {
