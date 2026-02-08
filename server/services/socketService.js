@@ -385,6 +385,7 @@ class SocketService {
                     },
                     game: game.toJSON()
                 });
+                // Property purchase requires decision - no auto-end
                 break;
 
             case 'rent-paid':
@@ -400,6 +401,11 @@ class SocketService {
                 // Check for bankruptcy after rent payment
                 if (landingResult.bankruptcyTriggered) {
                     this.handleBankruptcy(roomCode, landingResult.playerId, landingResult.creditorId);
+                } else {
+                    // Rent paid, no more actions needed - suggest turn end
+                    this.io.to(roomCode).emit('suggest-turn-end', {
+                        playerId: landingResult.playerId
+                    });
                 }
                 break;
 
@@ -423,6 +429,11 @@ class SocketService {
                         );
                         this.handleLandingResult(roomCode, newLandingResult, game);
                     }, 100);
+                } else {
+                    // Card effect applied, no more actions - suggest turn end
+                    this.io.to(roomCode).emit('suggest-turn-end', {
+                        playerId: landingResult.playerId
+                    });
                 }
                 break;
 
@@ -437,6 +448,11 @@ class SocketService {
                 // Check for bankruptcy after tax payment
                 if (landingResult.bankruptcyTriggered) {
                     this.handleBankruptcy(roomCode, landingResult.playerId, landingResult.creditorId);
+                } else {
+                    // Tax paid, no more actions - suggest turn end
+                    this.io.to(roomCode).emit('suggest-turn-end', {
+                        playerId: landingResult.playerId
+                    });
                 }
                 break;
 
@@ -444,6 +460,10 @@ class SocketService {
                 this.io.to(roomCode).emit('go-to-jail', {
                     playerId: landingResult.playerId,
                     game: game.toJSON()
+                });
+                // Going to jail ends turn automatically - suggest turn end
+                this.io.to(roomCode).emit('suggest-turn-end', {
+                    playerId: landingResult.playerId
                 });
                 break;
 
@@ -453,13 +473,20 @@ class SocketService {
                     amount: landingResult.jackpotAmount,
                     game: game.toJSON()
                 });
+                // Free parking collected - suggest turn end
+                this.io.to(roomCode).emit('suggest-turn-end', {
+                    playerId: landingResult.playerId
+                });
                 break;
 
             case 'free-parking':
             case 'own-property':
             case 'none':
             default:
-                // No special action needed
+                // No special action needed - these are passive spaces, suggest turn end
+                this.io.to(roomCode).emit('suggest-turn-end', {
+                    playerId: landingResult.playerId
+                });
                 break;
         }
     }

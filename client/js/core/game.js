@@ -203,6 +203,10 @@ class Game {
             this.handleFreeParkingJackpot(data);
         });
 
+        this.socket.on('suggest-turn-end', (data) => {
+            this.handleSuggestTurnEnd(data);
+        });
+
         this.socket.on('trade-offer-received', (data) => {
             this.handleTradeOfferReceived(data);
         });
@@ -716,6 +720,28 @@ class Game {
             this.log(`You collected ৳${amount} from Free Parking!`);
         } else {
             this.log(`${playerName} collected ৳${amount} from Free Parking`);
+        }
+    }
+
+    /**
+     * Handle suggest turn end event (for non-interactive spaces)
+     */
+    handleSuggestTurnEnd(data) {
+        const { playerId } = data;
+        
+        // Only enable/highlight end turn button for current player
+        if (playerId === this.currentPlayerId && this.endTurnBtn) {
+            this.endTurnBtn.disabled = false;
+            this.endTurnBtn.classList.add('ring-4', 'ring-yellow-300');
+            
+            // Auto-click after a short delay to give player time to see what happened
+            setTimeout(() => {
+                if (this.endTurnBtn && !this.endTurnBtn.disabled) {
+                    this.log('Turn completed - advancing to next player');
+                    this.endTurnBtn.classList.remove('ring-4', 'ring-yellow-300');
+                    this.handleEndTurn();
+                }
+            }, 1500);
         }
     }
 
