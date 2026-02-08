@@ -118,13 +118,14 @@ class LobbyUI {
     handleCreateRoom() {
         const hostName = Helpers.$('host-name')?.value.trim();
         const isPublic = Helpers.$('room-public')?.checked;
+        const maxPlayers = parseInt(Helpers.$('create-max-players-select')?.value || '4', 10);
         
         if (!Helpers.isValidPlayerName(hostName)) {
             notifications.error('Please enter a valid name (1-20 characters)');
             return;
         }
         
-        socketClient.createRoom(hostName, { isPublic });
+        socketClient.createRoom(hostName, { isPublic, maxPlayers });
         Helpers.hide(this.createRoomModal);
     }
 
