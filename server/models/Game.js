@@ -313,7 +313,7 @@ class Game {
                 player.money -= amountToPay;
                 result.message = `${player.name} paid ৳${amountToPay}.`;
                 result.moneyChange = -amountToPay;
-                if (player.money < card.amount) {
+                if (amountToPay < card.amount) {
                     result.message += ` (Could not afford full amount of ৳${card.amount})`;
                 }
                 break;
