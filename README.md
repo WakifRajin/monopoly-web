@@ -1,4 +1,4 @@
-# Bangladeshi Monopoly - Multiplayer Edition
+# Bangladeshi Monopoly - Multiplayer
 
 A modern, browser-based multiplayer Monopoly game with a Bangladeshi theme. Play online or on your local network with real-time WebSocket communication.
 
@@ -125,6 +125,3 @@ The game is built with a client-server architecture:
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
 
----
-
-Made with ❤️ for Monopoly fans in Bangladesh 🇧🇩
